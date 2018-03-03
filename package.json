@@ -1,0 +1,23 @@
+{
+  "name": "quick_and_dirty",
+  "version": "1.0.0",
+  "description": "quick and dirty scripts ===============  collect_html_fragments.rb = used to extracts bits of HTML from some scraped files",
+  "main": "capt_mand_read_state.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gotofritz/quick_and_dirty.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gotofritz/quick_and_dirty/issues"
+  },
+  "homepage": "https://github.com/gotofritz/quick_and_dirty#readme",
+  "dependencies": {
+    "glob": "7.1.2"
+  }
+}
