@@ -1,0 +1,24 @@
+{
+  "name": "quick_and_dirty",
+  "version": "1.0.0",
+  "description": "quick and dirty scripts",
+  "main": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gotofritz/quick_and_dirty.git"
+  },
+  "keywords": [],
+  "author": "gotofritz",
+  "license": "ISC",
+  "bin": {
+    "captain_mandolin": "./captain_mandolin"
+  },
+  "dependencies": {
+    "commander": "2.14.1",
+    "glob": "7.1.2",
+    "inquirer": "5.1.0"
+  }
+}
