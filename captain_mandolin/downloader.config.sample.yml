@@ -1,0 +1,29 @@
+_config:
+  dest: /Users/fritz/Desktop/SHORTS
+download:
+  ## individual YT videoclips - will be download as is and put in
+  ## the global dest
+  # - xuCn8ux2gbs
+  # - ZJDMWVZta3M
+  ## a YT playlist - a directory 'PLTJFUA6hbKK5zKU6jmD8WbTuSsLutsO3K' will be
+  ## created inside global dest, and indivudal videos saved there, prepended
+  ## with an ordinal
+  ## 'PLTJFUA6hbKK5zKU6jmD8WbTuSsLutsO3K/00 movie.mp4'
+  ## 'PLTJFUA6hbKK5zKU6jmD8WbTuSsLutsO3K/01 another.mp4' ...
+  # - PLTJFUA6hbKK5zKU6jmD8WbTuSsLutsO3K
+  ## download an individual movie and stick it in folder 'a folder' inside dest
+  # - dest: a folder
+  #   codes: ZJDMWVZta3M
+  ## an individual instruction - load a list of movies, and save them to a
+  ## folder 'RECORDER' inside dest. Individual movies will be prepended with the
+  ## prepend string AND an ordinal:
+  ## 'RECORDER/Mr Hines 0 xxxx.mp4'
+  ## 'RECORDER/Mr Hines 1 yyy.mp4' ....
+  # - dest: RECORDER/
+  #   prepend: Mr Hines
+  #   codes:
+  #     - x-b8uOcBv0g
+  #     - A3daafgbJFs
+  #     - AuOMLRWJtDc
+  #     - 4fl5e1hBZLY
+  #     - pDv_nMEo2sA

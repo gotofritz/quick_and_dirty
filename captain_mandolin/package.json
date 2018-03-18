@@ -19,6 +19,12 @@
   "dependencies": {
     "commander": "2.14.1",
     "glob": "7.1.2",
-    "inquirer": "5.1.0"
-  }
+    "luxon": "0.5.5",
+    "mkdirp": "0.5.1",
+    "rimraf": "2.6.1",
+    "youtube-dl": "^1.11.1",
+    "minimist": "1.2.0",
+    "js-yaml": "3.8.4"
+  },
+  "devDependencies": {}
 }
