@@ -150,12 +150,12 @@ function processQueue(queue) {
     const playlistInstructions = playlist.map(({ id }, i) => {
       return {
         ...asYoutubeInstructions({ codes: id, dest })[0],
-        ordinal: String(i).padStart(howManyDigitsNeeded, '0'),
+        ordinal: String(i + 1).padStart(howManyDigitsNeeded, '0'),
         prepend
       };
     });
     if (debug) console.log(playlistInstructions);
-    queue = queue.concat(playlistInstructions);
+    queue = playlistInstructions.concat(queue);
     processQueue(queue);
   });
 }
