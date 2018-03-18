@@ -1,0 +1,30 @@
+## _config:
+##    dest: default dest path
+##    srcRoot: path that will be prepended to all src
+##    removeInitialDigits: whether to remove initial digits
+##    verbose: false
+_config:
+  dest: /Volumes/FLASH_DRIVE
+  srcRoot: /Volumes/HARD_DISK/VIDEOS
+## an array of objects
+## src: compulsory, a folder with the files to rotate
+## last: will be updated by script, last file to be rotated
+## dest: if not present the one in _config will be used
+## howMany: default 1
+## traversal: if not 'breadth' then depth-first will be used
+## disabled: boolean
+## removeInitialDigits: or default from _config will be used
+## fixed: a file or an array of files to be copied as is, without rotating
+## ignore: a regExp to filter out paths
+instructions:
+  - src: CARTOONS
+  - src: TUTORIALS
+    dest: /Users/me/Movies
+  - src: FRACTALS
+    howMany: 3
+    traversal: breadth
+    ignore: nswf
+  - src: MUSIC/UKULELE
+    fixed:
+      - Uke  Uptown Funk - Kids Bop Version - Uke Play-along.mp4
+      - Uke  Uptown Funk - Kidz Bop Version - Picking Practice.mp4
