@@ -80,7 +80,11 @@ if (hasEnoughDataToWorkWith(config)) {
 
   // use script to add a directory to the config
   if (program.add) {
-    userData.instructions = addDir(program.add, userData.instructions);
+    userData.instructions = addInstruction(
+      program.add,
+      userData.instructions,
+      config
+    );
     userData.instructions.sort(
       (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0)
     );
@@ -108,8 +112,15 @@ process.exit();
 // =======================================================
 
 // adds a folder to settings
-function addDir(dir, instructions) {
+function addInstruction(pth, instructions, { srcRoot = '' } = {}) {
   const copyOfInstructions = Array.from(instructions);
+  const isFile = Boolean(path.extname(pth));
+  const dir = isFile ? path.dirname(pth) : pth;
+  const src =
+    dir[srcRoot.length] === '/'
+      ? dir.substr(srcRoot.length + 1)
+      : dir.substr(srcRoot.length);
+  const instruction = isFile ? { src, next: pth } : { src };
   const alreadyThereAt = copyOfInstructions.findIndex(
     instruction => instruction.src === dir
   );
@@ -122,9 +133,7 @@ function addDir(dir, instructions) {
       )}`
     );
   }
-  copyOfInstructions.push({
-    src: dir
-  });
+  copyOfInstructions.push(instruction);
   return copyOfInstructions;
 }
 
@@ -179,16 +188,20 @@ function getListOfFilesToCopy(instructions, config = {}) {
       if (String(instruction.traversal).toLowerCase() === 'breadth') {
         files = rearrangeAsBreadthFirst(files);
       }
-      const indexOfLast = instruction.last
-        ? files.indexOf(instruction.last)
-        : -1;
+
+      const indexOfLast = instruction.next
+        ? files.indexOf(instruction.next) - 1
+        : instruction.last ? files.indexOf(instruction.last) : -1;
+
       if (instruction.matchUpTo) {
         instruction.howMany = getNumberOfVideosMatching(files, {
           matchUpTo: instruction.matchUpTo,
           indexOfLast
         });
       }
+
       instruction.howMany = instruction.howMany || 1;
+
       for (let i = 1; i <= instruction.howMany; i++) {
         const src = files[(indexOfLast + i) % files.length];
         const destBasename = handleBasenameDigits(src, {
@@ -237,6 +250,7 @@ function copyFiles(filesToCopy, { verbose, removeInitialDigits } = {}) {
 function updateUserDataInPlace(instructions, copiedFiles = []) {
   copiedFiles.filter(file => file.isLast).forEach(file => {
     instructions[file.refToInstruction].last = file.src;
+    delete instructions[file.refToInstruction].next;
   });
   return instructions;
 }
