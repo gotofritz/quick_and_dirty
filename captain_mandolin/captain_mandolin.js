@@ -185,8 +185,8 @@ function getListOfFilesToCopy(instructions, config = {}) {
         const isFileToIgnore = new RegExp(instruction.ignore);
         files = files.filter(file => !isFileToIgnore.test(file));
       }
-      if (String(instruction.traversal).toLowerCase() === 'breadth') {
-        files = rearrangeAsBreadthFirst(files);
+      if (instruction.breadth) {
+        files = rearrangeAsBreadthFirst(files, instruction);
       }
 
       const indexOfLast = instruction.next
@@ -261,7 +261,7 @@ function updateUserDataInPlace(instructions, copiedFiles = []) {
 // asia/azerbijan
 // europe/andorra
 // america/brazil...
-function rearrangeAsBreadthFirst(files) {
+function rearrangeAsBreadthFirst(files, { breadth = 1 } = {}) {
   let folderMap = new Map();
   folderMap.set('maxLength', 0);
   const rearrangedFiles = [];
@@ -282,9 +282,9 @@ function rearrangeAsBreadthFirst(files) {
   const maxLength = folderMap.get('maxLength');
   folderMap.delete('maxLength');
 
-  for (let i = 0; i < maxLength; i++) {
+  for (let i = 0; i < maxLength; i += breadth) {
     folderMap.forEach((value, key, map) => {
-      rearrangedFiles.push(value.shift());
+      rearrangedFiles.push(...value.splice(0, breadth));
       if (value.length === 0) {
         map.delete(key);
       }
