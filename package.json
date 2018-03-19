@@ -1,0 +1,33 @@
+{
+  "name": "quick_and_dirty",
+  "version": "1.0.0",
+  "description":
+    "quick and dirty scripts =============== captain_mandolin/ = utilities to download, postprocess and manage videos and audio from youtube",
+  "main": "index.js",
+  "dependencies": {
+    "glob": "^7.1.2"
+  },
+  "devDependencies": {
+    "babel-eslint": "8.2.2",
+    "eslint": "4.19.0",
+    "eslint-config-last": "0.0.5",
+    "eslint-config-prettier": "2.9.0",
+    "eslint-plugin-prettier": "2.6.0",
+    "prettier": "1.11.1"
+  },
+  "scripts": {
+    "lint": "eslint --fix .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gotofritz/quick_and_dirty.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gotofritz/quick_and_dirty/issues"
+  },
+  "homepage": "https://github.com/gotofritz/quick_and_dirty#readme"
+}

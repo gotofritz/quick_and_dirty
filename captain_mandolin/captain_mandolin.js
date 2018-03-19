@@ -38,18 +38,14 @@ const glob = require('glob');
 const path = require('path');
 const fs = require('fs');
 const program = require('commander');
-const yaml = require('js-yaml');
 const mkdirp = require('mkdirp');
 
 const { getConfigOrDie, writeYaml } = require('./lib/shared');
 
-const DEFAULT_CONFIG = path.join(
-  __dirname,
-  'captain_mandolin.config.yml'
-);
+const DEFAULT_CONFIG = path.join(__dirname, 'captain_mandolin.config.yml');
 const DEFAULT_CONFIG_BAK = DEFAULT_CONFIG.replace(
   /\.config\.yml/,
-  '.config.yml.bak'
+  '.config.yml.bak',
 );
 const GLOB_SETTINGS = Object.freeze({ nodir: true });
 const EXTENSION_GLOB = 'mp4';
@@ -59,7 +55,7 @@ program
   .option(
     `-c, --config [path]`,
     `path to a config file, default ${DEFAULT_CONFIG}`,
-    DEFAULT_CONFIG
+    DEFAULT_CONFIG,
   )
   .option(`-v, --verbose`, `verbose`)
   .option(`-a, --add <path>`, `add a directory`)
@@ -70,9 +66,9 @@ let userData = getConfigOrDie(program.config);
 const config = Object.assign(
   {
     removeInitialDigits: true,
-    verbose: false
+    verbose: false,
   },
-  userData._config
+  userData._config,
 );
 
 if (hasEnoughDataToWorkWith(config)) {
@@ -83,20 +79,17 @@ if (hasEnoughDataToWorkWith(config)) {
     userData.instructions = addInstruction(
       program.add,
       userData.instructions,
-      config
+      config,
     );
     userData.instructions.sort(
-      (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0)
+      (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0),
     );
     writeYaml(DEFAULT_CONFIG, userData);
     console.log(`Done - added dir ${program.add}`);
 
     // use script to move viles around
   } else {
-    const filesToCopy = getListOfFilesToCopy(
-      userData.instructions,
-      config
-    );
+    const filesToCopy = getListOfFilesToCopy(userData.instructions, config);
     if (program.dryRun) {
       console.log(filesToCopy);
     } else {
@@ -122,15 +115,15 @@ function addInstruction(pth, instructions, { srcRoot = '' } = {}) {
       : dir.substr(srcRoot.length);
   const instruction = isFile ? { src, next: pth } : { src };
   const alreadyThereAt = copyOfInstructions.findIndex(
-    instruction => instruction.src === dir
+    instruction => instruction.src === dir,
   );
   if (alreadyThereAt > -1) {
     console.log(
       `Directory already there - adding anyway. ${JSON.stringify(
         copyOfInstructions[alreadyThereAt],
         null,
-        2
-      )}`
+        2,
+      )}`,
     );
   }
   copyOfInstructions.push(instruction);
@@ -146,9 +139,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
     (accumulator, instruction, refToInstruction) => {
       if (instruction.disabled) return accumulator;
 
-      const {
-        removeInitialDigits = config.removeInitialDigits
-      } = instruction;
+      const { removeInitialDigits = config.removeInitialDigits } = instruction;
 
       if (instruction.fixed) {
         if (!Array.isArray(instruction.fixed)) {
@@ -157,18 +148,15 @@ function getListOfFilesToCopy(instructions, config = {}) {
         accumulator.push(
           ...instruction.fixed.map(src => {
             const destBasename = handleBasenameDigits(src, {
-              removeInitialDigits
+              removeInitialDigits,
             });
             return {
               // without isLast, config will not be updated
               isLast: false,
               src: path.join(config.srcRoot, instruction.src, src),
-              dest: path.join(
-                instruction.dest || config.dest,
-                destBasename
-              )
+              dest: path.join(instruction.dest || config.dest, destBasename),
             };
-          })
+          }),
         );
         return accumulator;
       }
@@ -176,7 +164,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
       const globPath = path.join(
         config.srcRoot,
         instruction.src,
-        `/**/*.${extension}`
+        `/**/*.${extension}`,
       );
       let files = glob.sync(globPath, GLOB_SETTINGS);
       if (files.length === 0) return accumulator;
@@ -196,7 +184,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
       if (instruction.matchUpTo) {
         instruction.howMany = getNumberOfVideosMatching(files, {
           matchUpTo: instruction.matchUpTo,
-          indexOfLast
+          indexOfLast,
         });
       }
 
@@ -205,18 +193,18 @@ function getListOfFilesToCopy(instructions, config = {}) {
       for (let i = 1; i <= instruction.howMany; i++) {
         const src = files[(indexOfLast + i) % files.length];
         const destBasename = handleBasenameDigits(src, {
-          removeInitialDigits
+          removeInitialDigits,
         });
         accumulator.push({
           refToInstruction,
           isLast: i === instruction.howMany,
           src,
-          dest: path.join(instruction.dest || config.dest, destBasename)
+          dest: path.join(instruction.dest || config.dest, destBasename),
         });
       }
       return accumulator;
     },
-    []
+    [],
   );
   return filesToCopy;
 }
@@ -224,7 +212,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
 // takes the array of file.src / file.dest produced by getListOfFilesToCopy and
 // does the actual copying. Returns a new array, with the same list but without
 // the files that caused an error
-function copyFiles(filesToCopy, { verbose, removeInitialDigits } = {}) {
+function copyFiles(filesToCopy, { verbose } = {}) {
   console.log('Copying files...');
   const arrayCopy = Array.from(filesToCopy);
   arrayCopy.forEach((file, i, arr) => {
@@ -299,10 +287,7 @@ function rearrangeAsBreadthFirst(files, { breadth = 1 } = {}) {
 // Pimpa #1.mp4
 // Pimpa #2 At the seaside.mp4 ...
 // This function works out how many such files to copy
-function getNumberOfVideosMatching(
-  files,
-  { indexOfLast, matchUpTo } = {}
-) {
+function getNumberOfVideosMatching(files, { indexOfLast, matchUpTo } = {}) {
   let howMany;
   let i = (indexOfLast + 1) % files.length;
   const nextFile = files[i];

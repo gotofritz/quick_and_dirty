@@ -4,7 +4,6 @@
  */
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
 const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const argv = require('minimist')(process.argv.slice(2));
@@ -22,9 +21,9 @@ console.log('Loading user data ...', debug ? userData : '');
 
 const config = Object.assign(
   {
-    some: 'data'
+    some: 'data',
   },
-  userData._config
+  userData._config,
 );
 
 if (Array.isArray(userData.download)) {
@@ -84,7 +83,7 @@ function processQueue(queue) {
     ['--no-warnings'],
 
     // Additional options can be given for calling `child_process.execFile()`.
-    { cwd: __dirname, maxBuffer: 32000 * 1024 }
+    { cwd: __dirname, maxBuffer: 32000 * 1024 },
   );
 
   let size = 0;
@@ -94,18 +93,13 @@ function processQueue(queue) {
   video.on('info', infoFromServer => {
     size = infoFromServer.size;
 
-    filename = `${dest}/${prepend}${
-      instruction.ordinal
-    }${PREPEND_SEPARATOR}${infoFromServer._filename}`.replace(
-      /-[^ ].{10}\./,
-      '.'
-    );
+    filename = `${dest}/${prepend}${instruction.ordinal}${PREPEND_SEPARATOR}${
+      infoFromServer._filename
+    }`.replace(/-[^ ].{10}\./, '.');
     console.log(`filename: ${filename}
-    size: ${(Number(infoFromServer.size) / 1000000).toFixed(
-      1
-    )}Mb, duration: ${infoFromServer.duration}, ${
-      queue.length
-    } left to downalod`);
+    size: ${(Number(infoFromServer.size) / 1000000).toFixed(1)}Mb, duration: ${
+      infoFromServer.duration
+    }, ${queue.length} left to downalod`);
     video.pipe(fs.createWriteStream(filename));
   });
 
@@ -120,7 +114,7 @@ function processQueue(queue) {
       console.log(
         `${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${
           instruction.attempts
-        }`
+        }`,
       );
       queue.push(instruction);
     }
@@ -156,7 +150,7 @@ function processQueue(queue) {
       return {
         ...asYoutubeInstructions({ codes: id, dest })[0],
         ordinal: String(i + 1).padStart(howManyDigitsNeeded, '0'),
-        prepend
+        prepend,
       };
     });
     if (debug) console.log(playlistInstructions);
@@ -171,9 +165,7 @@ function processQueue(queue) {
 function getDest({ dest = '' }, { dest: defaultDest = '' }) {
   return dest[0] === '/'
     ? dest
-    : `${defaultDest}/${dest}`
-        .replace(/\/{2,}/g, '/')
-        .replace(/\/$/, '');
+    : `${defaultDest}/${dest}`.replace(/\/{2,}/g, '/').replace(/\/$/, '');
 }
 
 // given a service, and a type, formats it into a URL for getting videos
@@ -197,7 +189,7 @@ function getUrl({ service, code, type }) {
  */
 function asYoutubeInstructions(
   { codes, dest, ...rest },
-  config = { dest: __dirname }
+  config = { dest: __dirname },
 ) {
   if (Array.isArray(codes)) {
     // if codes is an array, it can ONLY be an array of videoclips (developer
@@ -225,7 +217,7 @@ function asYoutubeInstructions(
       type: isClip ? 'video' : 'playlist',
       dest,
       ordinal: i,
-      ...rest
+      ...rest,
     };
   });
 }
