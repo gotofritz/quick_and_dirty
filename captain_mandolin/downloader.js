@@ -100,7 +100,12 @@ function processQueue(queue) {
       /-[^ ].{10}\./,
       '.'
     );
-    console.log(`filename: ${filename}; size: ${infoFromServer.size}`);
+    console.log(`filename: ${filename}
+    size: ${(Number(infoFromServer.size) / 1000000).toFixed(
+      1
+    )}Mb, duration: ${infoFromServer.duration}, ${
+      queue.length
+    } left to downalod`);
     video.pipe(fs.createWriteStream(filename));
   });
 
@@ -130,8 +135,8 @@ function processQueue(queue) {
       pos += chunk.length;
       if (size) {
         let percent = (pos / size * 100).toFixed(2);
-        process.stdout.cursorTo(0);
-        process.stdout.clearLine(1);
+        process.stdout.cursorTo(5);
+        process.stdout.clearLine(5);
         process.stdout.write(percent + '%');
       }
     }
