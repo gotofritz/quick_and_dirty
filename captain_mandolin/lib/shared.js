@@ -16,15 +16,11 @@ const getConfigOrDie = pth => {
 };
 
 const writeYaml = (pth, settings) => {
-  fs.writeFileSync(
-    pth,
-    yaml.safeDump(settings, { lineWidth: -1 }),
-    'utf8'
-  );
+  fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
   return settings;
 };
 
 module.exports = {
   getConfigOrDie,
-  writeYaml
+  writeYaml,
 };
