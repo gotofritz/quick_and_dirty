@@ -8,7 +8,7 @@ const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const argv = require('minimist')(process.argv.slice(2));
 
-const { getConfigOrDie } = require('./lib/shared');
+const { getConfigOrDie, getDigitsNeeded } = require('./lib/shared');
 
 const DEFAULT_CONFIG = path.join(__dirname, './downloader.config.yml');
 const PREPEND_SEPARATOR = ' ';
@@ -234,11 +234,6 @@ function isYoutubeVideo(code = '') {
   // playlist
   const YOUTUBE_CLIP_CODE = 11;
   return code.toLowerCase && code.length === YOUTUBE_CLIP_CODE;
-}
-
-// how many digits needed to represent a number
-function getDigitsNeeded(number) {
-  return Math.ceil(Math.log10(number + 1));
 }
 
 // makes sure sensible defaults are applied
