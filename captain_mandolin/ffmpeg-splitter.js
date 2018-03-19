@@ -14,8 +14,6 @@ const DATETIME_FORMAT = 'hh:mm:ss';
 const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
 const PREPEND_SEPARATOR = ' ';
 
-let globalStart = LuxonDuration.fromObject({});
-
 program
   .version('0.0.1')
   .option(
