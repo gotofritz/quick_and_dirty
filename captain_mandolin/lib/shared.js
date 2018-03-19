@@ -20,7 +20,13 @@ const writeYaml = (pth, settings) => {
   return settings;
 };
 
+// how many digits needed to represent a number
+const getDigitsNeeded = forNumber => {
+  return Math.ceil(Math.log10(forNumber + 1));
+};
+
 module.exports = {
   getConfigOrDie,
+  getDigitsNeeded,
   writeYaml,
 };
