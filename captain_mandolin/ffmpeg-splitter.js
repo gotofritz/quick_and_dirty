@@ -30,12 +30,11 @@ const userData = getConfigOrDie(program.config);
 
 const config = Object.assign(
   {
-    verbose: false,
     prependWithDigits: false,
   },
   userData._config,
 );
-if (config.verbose) console.log(config);
+if (program.verbose) console.log(config);
 
 if (hasEnoughDataToWorkWith(config, userData)) {
   console.log('Decoding instructions...');
@@ -103,8 +102,8 @@ if (hasEnoughDataToWorkWith(config, userData)) {
   }
 }
 
-function hasEnoughDataToWorkWith(data = {}, instr) {
-  return data.srcRoot && data.dest && Boolean(instr);
+function hasEnoughDataToWorkWith(data = {}, yamlData) {
+  return data.srcRoot && data.dest && Boolean(yamlData.instructions);
 }
 
 function getStart(currentOutput, lastStart) {
