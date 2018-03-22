@@ -1,0 +1,147 @@
+/**
+ * Takes a bunch of video files and uses ffmpeg to join them up. Use case:
+ * I have a few long video files which I have already split into a title
+ * sequence, title, and some 10 minutes fragments. This script will be used
+ * to add the title in front of each fragment (so they don't just start suddenly
+ * in the middle of the action), and the title sequence in fron of the very
+ * first one (so you can tell it's the first)
+ *
+ * Each clip will be generated in at least 2 passes. First each part is remuxed
+ * to a temp file. Then those temp files are concatenated together
+ * https://superuser.com/questions/420363/how-to-concatenate-two-flv-files#521864
+ */
+const path = require('path');
+var exec = require('child_process').exec;
+const program = require('commander');
+
+const { getConfigOrDie, normalizePath } = require('./lib/shared');
+
+const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
+const SUFFIX = 'mp4';
+const SUFFIX_TMP = 'ts';
+const TEMP_DIR = __dirname;
+
+program
+  .version('0.0.1')
+  .option(
+    `-c, --config [path]`,
+    `path to a config file, default ${DEFAULT_CONFIG}`,
+    DEFAULT_CONFIG,
+  )
+  .option(`-v, --verbose`, `verbose`)
+  .option(`-d, --dry-run`, `output file list instead of copying files`)
+  .parse(process.argv);
+
+console.log('Reading config...');
+const userData = getConfigOrDie(program.config);
+
+const config = Object.assign(
+  {
+    tempDir: TEMP_DIR,
+  },
+  userData._config,
+);
+if (program.verbose) console.log(config);
+
+if (hasEnoughDataToWorkWith(config, userData)) {
+  console.log('Decoding instructions...');
+
+  // to avoid using up too much disk space, temporary files which are not
+  // shared will be overwritten at each iteration. This is the base name used
+  // for them (to which 0, 1, ... will be added)
+  const TEMP_REF_BASE = 'tmp';
+
+  const {
+    // this will eventually be filled with ffmpeg commands
+    commands,
+
+    // Named tempfiles are in theory shared across clips, so they only need to be
+    // rendered once. This map keeps track of them
+    sharedTempFiles,
+  } = userData.instructions.reduce(
+    (accumulator, current, i) => {
+      const title = normalizePath(current.title, config.dest);
+      const tempFilePaths = [];
+
+      // each instruction is a list of fragments that will be concatenated to
+      // create an output file - either a shared reference, or a path
+      current.srcs.forEach((src, j) => {
+        let srcPath;
+        let tempFilePath;
+
+        if (src in userData.shared) {
+          srcPath = userData.shared[src];
+          tempFilePath = normalizePath(tempFile(src), config.srcRoot);
+
+          // shared files are only rendered if needed. We add to the list, and
+          // when we have processed all files to be generated we add the whole list
+          // at the beginning, to make sure it's there for everyone
+          if (!accumulator.sharedTempFiles.has(srcPath)) {
+            accumulator.sharedTempFiles.set(srcPath, tempFilePath);
+          }
+        } else {
+          // NOTE that temporary *.ts files need to be unique, hence the -j-i
+          // Another
+          srcPath = src;
+          tempFilePath = tempFile(`${TEMP_REF_BASE}-${j}-${i}`);
+          accumulator.commands.push(tempCommand(srcPath, tempFilePath));
+        }
+        tempFilePaths.push(tempFilePath);
+      });
+      if (tempFilePaths.length > 0) {
+        accumulator.commands.push(joinCommand(title, tempFilePaths));
+      }
+      return accumulator;
+    },
+    {
+      commands: [],
+      sharedTempFiles: new Map(),
+    },
+  );
+  if (sharedTempFiles.size > 0) {
+    commands.unshift(
+      ...Array.from(sharedTempFiles.entries()).map(([reference, file]) =>
+        tempCommand(reference, file),
+      ),
+    );
+  }
+  if (program.verbose) console.log(commands);
+
+  nextStep(commands);
+} else {
+  console.log('Not enough data in config to work with');
+}
+
+function nextStep(queue = []) {
+  if (queue.length) {
+    let cmd = queue.shift();
+    console.log(`Running ${cmd}`);
+    exec(cmd, (err, stdout, stderr) => {
+      if (err) {
+        console.log('ERROR', err, stdout, stderr);
+      } else {
+        return nextStep(queue);
+      }
+    });
+  } else {
+    console.log('DONE');
+  }
+}
+
+function hasEnoughDataToWorkWith(data = {}, yamlData) {
+  return data.srcRoot && data.dest && Boolean(yamlData.instructions);
+}
+
+function tempFile(reference) {
+  return `${config.tempDir}/${reference}.${SUFFIX_TMP}`;
+}
+
+function tempCommand(src, dest) {
+  return `ffmpeg -i "${src}" -c copy -bsf:v h264_mp4toannexb -f mpegts "${dest}"`;
+}
+
+function joinCommand(outputPath, sections = []) {
+  return `ffmpeg -i "concat:${sections.join(
+    '|',
+  )}" -c copy -bsf:a aac_adtstoasc "${config.dest}/${outputPath}"`;
+}

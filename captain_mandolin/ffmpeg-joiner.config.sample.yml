@@ -1,0 +1,26 @@
+## _config:
+##    dest: default dest path
+##    srcRoot: path that will be prepended to all src
+##    prependWithDigits: whether to add digits at start even if title is there
+##    verbose: false
+_config:
+  dest: /Users/fritz/Desktop/CONVERTED
+  srcRoot: /Volumes/WD2T/VIDEO/SHORTS/
+## label clips, so that they can be used in more than one place
+shared:
+  title0: /Users/fritz/Desktop/00_sigla.mp4
+  title2: /Users/fritz/Desktop/00_sigla.mp4
+## an array of objects, one per input file
+instructions:
+    ## an array of paths or keys from shared object above
+  - srcs:
+      - title0
+      - /Users/fritz/Desktop/SRC1.mp4
+    ## filename
+    title: OUTPUT1.mp4
+    ## an array of paths or keys from shared object above
+  - srcs:
+      - title0
+      - /Users/fritz/Desktop/SRC2.mp4
+    ## filename
+    title: OUTPUT2.mp4

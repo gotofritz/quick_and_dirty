@@ -25,8 +25,16 @@ const getDigitsNeeded = forNumber => {
   return Math.ceil(Math.log10(forNumber + 1));
 };
 
+const normalizePath = (pth, dirname) => {
+  if (path.isAbsolute(pth)) {
+    return pth;
+  }
+  return path.join(dirname, pth);
+};
+
 module.exports = {
   getConfigOrDie,
   getDigitsNeeded,
+  normalizePath,
   writeYaml,
 };
