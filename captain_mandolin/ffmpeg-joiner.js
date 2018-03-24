@@ -13,13 +13,15 @@
 const path = require('path');
 var exec = require('child_process').exec;
 const program = require('commander');
+const mkdirp = require('mkdirp');
+const rimraf = require('rimraf');
 
 const { getConfigOrDie, normalizePath } = require('./lib/shared');
 
 const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
 const SUFFIX = 'mp4';
 const SUFFIX_TMP = 'ts';
-const TEMP_DIR = __dirname;
+const TEMP_DIR = path.join(__dirname, '.tmp');
 
 program
   .version('0.0.1')
@@ -46,6 +48,10 @@ if (program.verbose) console.log(config);
 if (hasEnoughDataToWorkWith(config, userData)) {
   console.log('Decoding instructions...');
 
+  `${config.tempDir}/*`;
+  mkdirp(config.dest);
+  mkdirp(config.tempDir);
+
   // to avoid using up too much disk space, temporary files which are not
   // shared will be overwritten at each iteration. This is the base name used
   // for them (to which 0, 1, ... will be added)
@@ -62,6 +68,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
     (accumulator, current, i) => {
       const title = normalizePath(current.title, config.dest);
       const tempFilePaths = [];
+      rimraf.sync(`${config.tempDir}/*.ts`);
 
       // each instruction is a list of fragments that will be concatenated to
       // create an output file - either a shared reference, or a path
@@ -82,13 +89,14 @@ if (hasEnoughDataToWorkWith(config, userData)) {
         } else {
           // NOTE that temporary *.ts files need to be unique, hence the -j-i
           // Another
-          srcPath = src;
+          srcPath = normalizePath(src, config.srcRoot);
           tempFilePath = tempFile(`${TEMP_REF_BASE}-${j}-${i}`);
           accumulator.commands.push(tempCommand(srcPath, tempFilePath));
         }
         tempFilePaths.push(tempFilePath);
       });
       if (tempFilePaths.length > 0) {
+        rimraf.sync(title);
         accumulator.commands.push(joinCommand(title, tempFilePaths));
       }
       return accumulator;
@@ -143,5 +151,5 @@ function tempCommand(src, dest) {
 function joinCommand(outputPath, sections = []) {
   return `ffmpeg -i "concat:${sections.join(
     '|',
-  )}" -c copy -bsf:a aac_adtstoasc "${config.dest}/${outputPath}"`;
+  )}" -c copy -bsf:a aac_adtstoasc "${outputPath}"`;
 }

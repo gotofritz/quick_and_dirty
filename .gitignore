@@ -13,3 +13,4 @@ yarn-error.log*
 /.changelog
 *.config.yml
 *.bak
+.tmp
