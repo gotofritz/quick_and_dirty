@@ -40,6 +40,12 @@ const userData = getConfigOrDie(program.config);
 const config = Object.assign(
   {
     tempDir: TEMP_DIR,
+
+    // used only when repeat: r is set, only useful when there are
+    // more than one videoclip to repeat.
+    // each: repeat 1st clip in list r times, then the next r times, etc
+    // whole: repeat whole list r times
+    repeatType: 'each',
   },
   userData._config,
 );
@@ -66,9 +72,24 @@ if (hasEnoughDataToWorkWith(config, userData)) {
     sharedTempFiles,
   } = userData.instructions.reduce(
     (accumulator, current, i) => {
+      rimraf.sync(`${config.tempDir}/*.ts`);
+
+      const repeat = current.repeat || config.repeat;
+      if (repeat) {
+        // TODO - do 'upuntil' # like in captin...
+        current.title = current.title || current.srcs[0];
+        if (config.repeatType === 'each') {
+          current.srcs = current.srcs.reduce((repeatAccumulator, repeated) => {
+            repeatAccumulator.push(...Array(repeat).fill(repeated));
+            return repeatAccumulator;
+          }, []);
+        } else {
+          current.srcs = [].concat(...Array(repeat).fill(current.srcs));
+        }
+      }
+
       const title = normalizePath(current.title, config.dest);
       const tempFilePaths = [];
-      rimraf.sync(`${config.tempDir}/*.ts`);
 
       // each instruction is a list of fragments that will be concatenated to
       // create an output file - either a shared reference, or a path
@@ -91,11 +112,17 @@ if (hasEnoughDataToWorkWith(config, userData)) {
           // Another
           srcPath = normalizePath(src, config.srcRoot);
           tempFilePath = tempFile(`${TEMP_REF_BASE}-${j}-${i}`);
+
+          // TODO
+          // no need to generate all these copies of temp if it's the same
+          // file
           accumulator.commands.push(tempCommand(srcPath, tempFilePath));
         }
         tempFilePaths.push(tempFilePath);
       });
       if (tempFilePaths.length > 0) {
+        // TODO
+        // this needs to be in the nextStep loop
         rimraf.sync(title);
         accumulator.commands.push(joinCommand(title, tempFilePaths));
       }
@@ -115,7 +142,11 @@ if (hasEnoughDataToWorkWith(config, userData)) {
   }
   if (program.verbose) console.log(commands);
 
-  nextStep(commands);
+  if (program.dryRun) {
+    console.log(commands);
+  } else {
+    nextStep(commands);
+  }
 } else {
   console.log('Not enough data in config to work with');
 }
