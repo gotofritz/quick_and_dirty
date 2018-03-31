@@ -1,13 +1,5 @@
 #!/usr/bin/env node
 
-// TODO
-// removeInitialDigits should be run after matchUpTo
-// new rule: random
-// tests
-// plugin mechanism for rules (i.e. if I have a new rule 'random' I should be
-// able to just add a folder 'random' inside a folder 'rules', with code + tests
-// without touching main code)
-
 /**
  * Script to move a selection of movie files in rotation from one repository
  * folder to a detination folder. Say you have a repo with this structure:
