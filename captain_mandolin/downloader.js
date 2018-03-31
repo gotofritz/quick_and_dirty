@@ -21,10 +21,12 @@ console.log('Loading user data ...', debug ? userData : '');
 
 const config = Object.assign(
   {
-    some: 'data',
+    tmp: path.join(__dirname, '.tmp'),
   },
   userData._config,
 );
+
+let postprocessing = [];
 
 if (Array.isArray(userData.download)) {
   let instructions = userData.download.reduce((accumulator, entry) => {
@@ -41,16 +43,17 @@ if (Array.isArray(userData.download)) {
   }, []);
   console.log('Decoding instructions...', debug ? instructions : '');
 
-  processQueue(instructions);
+  processQueue(instructions, postprocessing);
 }
 
 //////////////////////////////////////////////////////
 
 // Called recursively. This is the heart of the script
-function processQueue(queue) {
+function processQueue(queue, postQueue) {
   // stop recursing when finished
   if (!queue.length) {
-    console.log('DONE');
+    console.log('DONE DOWNLOADING');
+    postprocessQueue(postQueue);
     return;
   }
 
@@ -60,6 +63,7 @@ function processQueue(queue) {
 
   const url = getUrl(instruction);
   const dest = getDest(instruction, config);
+  let basename;
 
   // 'prepend' is something we put at the beginning of a filename, before the
   // ordinal. So a file could be renamed 'Anatroccolo Ali.mp4' to
@@ -92,10 +96,29 @@ function processQueue(queue) {
   // Processes the initial server response to download start command
   video.on('info', infoFromServer => {
     size = infoFromServer.size;
-
-    filename = `${dest}/${prepend}${instruction.ordinal}${PREPEND_SEPARATOR}${
-      infoFromServer._filename
-    }`.replace(/-[^ ].{10}\./, '.');
+    basename = [
+      prepend,
+      instruction.ordinal,
+      PREPEND_SEPARATOR,
+      infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
+    ].join('');
+    if (shouldBeConverted(basename)) {
+      postprocessing.push(
+        `HandBrakeCLI -Z "Fast 1080p30" -i "${
+          config.tmp
+        }/${basename}" -o "${dest}/${basename.replace(
+          /\.[^.]{2,5}$/,
+          '.mp4',
+        )}"`,
+      );
+      postprocessing.push(
+        `HandBrakeCLI -Z "Fast 1080p30" -i "${dest}/${basename}" -o "${dest}/${basename.replace(
+          /\.[^.]{2,5}$/,
+          '.mp4',
+        )}"`,
+      );
+    }
+    filename = `${dest}/${basename}`;
     console.log(`filename: ${filename}
     size: ${(Number(infoFromServer.size) / 1000000).toFixed(1)}Mb, duration: ${
       infoFromServer.duration
@@ -118,7 +141,7 @@ function processQueue(queue) {
       );
       queue.push(instruction);
     }
-    return processQueue(queue);
+    return processQueue(queue, postQueue);
   });
 
   // Shows download progress
@@ -139,7 +162,7 @@ function processQueue(queue) {
   // Starts next recursion
   video.on('end', () => {
     console.log('');
-    processQueue(queue);
+    processQueue(queue, postQueue);
   });
 
   // Specific to playlist - it gets the list of video and appends it to queue,
@@ -155,7 +178,7 @@ function processQueue(queue) {
     });
     if (debug) console.log(playlistInstructions);
     queue = playlistInstructions.concat(queue);
-    processQueue(queue);
+    processQueue(queue, postQueue);
   });
 }
 
@@ -175,6 +198,15 @@ function getUrl({ service, code, type }) {
       ? `https://www.youtube.com/playlist?list=${code}`
       : `https://www.youtube.com/watch?v=${code}`
     : '';
+}
+
+function postprocessQueue(queue) {
+  console.log('POST:', queue);
+  // stop recursing when finished
+  // if (!queue.length) {
+  //   console.log('DONE');
+  //   return;
+  // }
 }
 
 /**
@@ -241,4 +273,8 @@ function normaliseInstruction(instruction = {}) {
   instruction.ordinal = instruction.ordinal || 0;
   instruction.attempts = instruction.attempts || 0;
   return instruction;
+}
+
+function shouldBeConverted(basename) {
+  return !/\.mp4$/.test(basename);
 }
