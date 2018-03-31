@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 
+// TODO
+// removeInitialDigits should be run after matchUpTo
+// new rule: random
+// tests
+// plugin mechanism for rules (i.e. if I have a new rule 'random' I should be
+// able to just add a folder 'random' inside a folder 'rules', with code + tests
+// without touching main code)
+
 /**
  * Script to move a selection of movie files in rotation from one repository
  * folder to a detination folder. Say you have a repo with this structure:
@@ -137,71 +145,126 @@ function getListOfFilesToCopy(instructions, config = {}) {
 
   const filesToCopy = instructions.reduce(
     (accumulator, instruction, refToInstruction) => {
+      // disabled = ignore
       if (instruction.disabled) return accumulator;
 
       const { removeInitialDigits = config.removeInitialDigits } = instruction;
 
+      // fixed = just copy the file(s) in the list and return, do nothing clever
+      // with the config
       if (instruction.fixed) {
-        if (!Array.isArray(instruction.fixed)) {
-          instruction.fixed = Array.of(instruction.fixed);
-        }
-        accumulator.push(
-          ...instruction.fixed.map(src => {
-            const destBasename = handleBasenameDigits(src, {
-              removeInitialDigits,
-            });
-            return {
-              // without isLast, config will not be updated
-              isLast: false,
-              src: path.join(config.srcRoot, instruction.src, src),
-              dest: path.join(instruction.dest || config.dest, destBasename),
-            };
+        return accumulator.concat(
+          pushFixed(instruction.fixed, {
+            removeInitialDigits,
+            srcPath: path.join(config.srcRoot, instruction.src),
+            destPath: instruction.dest || config.dest,
           }),
         );
-        return accumulator;
       }
 
+      // the src parameter in the instruction is the root for a deep search
       const globPath = path.join(
         config.srcRoot,
         instruction.src,
         `/**/*.${extension}`,
       );
       let files = glob.sync(globPath, GLOB_SETTINGS);
-      if (files.length === 0) return accumulator;
+      if (files.length === 0) {
+        err(`No files found with ${globPath}`);
+        return accumulator;
+      }
 
+      // ignore = regexp for file(s) not to be included in search
       if (instruction.ignore) {
         const isFileToIgnore = new RegExp(instruction.ignore);
         files = files.filter(file => !isFileToIgnore.test(file));
+        if (files.length === 0) {
+          err(
+            `No files left in ${instruction.src} after applying ignore: ${
+              instruction.ignore
+            }`,
+          );
+          return accumulator;
+        }
       }
+
+      // breadth = go across subfolder instead of drilling down each. Note that
+      // you can pass a number to have a mixture of the two; so for example
+      // with breadth 1 it will be a normal breadt-first search, but with 2:
+      // america/argentina
+      // america/bolivia
+      // asia/afghanistan
+      // asia/armenia
+      // europe/albania
+      // europe/andorra
+      // america/brazil
+      // ...
       if (instruction.breadth) {
         files = rearrangeAsBreadthFirst(files, instruction);
       }
 
+      // next = the system uses .last, but when editing config manually it may
+      // be more convenient to enter what we want as next file (expecially if
+      // the last one was deleted or renamed)
       const indexOfLast = instruction.next
         ? files.indexOf(instruction.next) - 1
         : instruction.last ? files.indexOf(instruction.last) : -1;
 
-      if (instruction.matchUpTo) {
-        instruction.howMany = getNumberOfVideosMatching(files, {
-          matchUpTo: instruction.matchUpTo,
-          indexOfLast,
-        });
-      }
+      // we keep the list of movies in a separate list for further processing
+      // before adding it to the master list
+      let preList = [];
 
-      instruction.howMany = instruction.howMany || 1;
+      // howMany = self-explanatory
+      // spread = like howMany, but instead of being next to each other they
+      // will be evenly spread across list. So if you have 10 files, with
+      // howMany: 2 it will fetch 1,2 this time and 3,4 next and so on;
+      // with spread: 2 it will fetch 1,5 this time and 2,6 next and so on
+      instruction.howMany = instruction.spread || instruction.howMany || 1;
+      let increment = instruction.spread
+        ? files.length / instruction.spread
+        : 1;
+      let i, runningCount;
 
-      for (let i = 1; i <= instruction.howMany; i++) {
-        const src = files[(indexOfLast + i) % files.length];
+      for (
+        i = runningCount = 1;
+        i <= instruction.howMany;
+        runningCount += increment, i++
+      ) {
+        const src =
+          files[(indexOfLast + Math.round(runningCount)) % files.length];
         const destBasename = handleBasenameDigits(src, {
           removeInitialDigits,
         });
-        accumulator.push({
+        preList.push({
+          // for debugging
           refToInstruction,
-          isLast: i === instruction.howMany,
+          isLast: false,
+
+          // the actual file copying data
           src,
           dest: path.join(instruction.dest || config.dest, destBasename),
         });
       }
+
+      accumulator = accumulator.concat(
+        preList,
+
+        // matchUpTo = if there are similarly named videos (typically numbered
+        // sequences such as Kudo Trailer #1.mp4 Kudo Trailer #2.mp4) get all
+        // those who who share the beginning of the name with the next one. "The
+        // beginning of the name" is defined as the part of the name from the
+        // beginning until the sequence of char(s) matchUpTo (in the example
+        // above that could be '#' or 'Trailer #')
+        instruction.matchUpTo
+          ? getSimilarlyNamedVideos(preList, files, {
+              matchUpTo: instruction.matchUpTo,
+            })
+          : [],
+      );
+
+      // isLast decides whether the file will be the one written as
+      // 'last' in the userData
+      accumulator[accumulator.length - 1].isLast = true;
       return accumulator;
     },
     [],
@@ -223,7 +286,7 @@ function copyFiles(filesToCopy, { verbose } = {}) {
       mkdirp.sync(path.dirname(file.dest));
       fs.copyFileSync(file.src, file.dest);
     } catch (e) {
-      console.log(`ERROR ${e}`);
+      err(e);
       // we rely on the fact that once a forEach loop is initialised, the array
       // it is working with is 'frozen' and any changes to it will not affect
       // the loop
@@ -281,25 +344,36 @@ function rearrangeAsBreadthFirst(files, { breadth = 1 } = {}) {
   return rearrangedFiles;
 }
 
-// when an instruction is called with param 'matchUpTo' (typically a string like
-// #) then script will try and copy all the files whose name start with the same
-// string as the next one due; e.g.
-// Pimpa #1.mp4
-// Pimpa #2 At the seaside.mp4 ...
-// This function works out how many such files to copy
-function getNumberOfVideosMatching(files, { indexOfLast, matchUpTo } = {}) {
-  let howMany;
-  let i = (indexOfLast + 1) % files.length;
-  const nextFile = files[i];
-  const whereIsMatch = nextFile.indexOf(matchUpTo);
-  if (whereIsMatch !== -1) {
-    const stem = nextFile.substring(0, whereIsMatch);
-    while (files[i].substr(0, whereIsMatch) === stem) {
-      i += 1;
-    }
-    howMany = i - indexOfLast - 1;
-  }
-  return howMany;
+function getSimilarlyNamedVideos(
+  similarTo,
+  oneOfTheseVideos,
+  { matchUpTo } = {},
+) {
+  const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
+  const matcher = pth => pth.match(matchUpToRE) || [];
+
+  const similarlyNamed = similarTo.reduce((accumulator, current) => {
+    const currentBasename = path.basename(current.src);
+    const [basenameMatch] = matcher(currentBasename);
+    if (!basenameMatch) return accumulator;
+
+    const isBasenameEqual = b =>
+      b.substr(0, basenameMatch.length) === basenameMatch;
+
+    const fileGroup = oneOfTheseVideos
+      .map(fullpath => path.basename(fullpath))
+      .filter(basename => {
+        return basename !== currentBasename && isBasenameEqual(basename);
+      })
+      .map(src => ({
+        ...current,
+        src: path.join(path.dirname(current.src), src),
+        dest: path.join(path.dirname(current.dest), src),
+      }));
+    return accumulator.concat(fileGroup);
+  }, []);
+
+  return similarlyNamed;
 }
 
 // early exit
@@ -311,4 +385,23 @@ function handleBasenameDigits(src, { removeInitialDigits } = {}) {
   return removeInitialDigits
     ? path.basename(src).replace(/^([A-Z]{2,6} )?\d+ -? ?/i, '$1')
     : path.basename(src);
+}
+
+function pushFixed(fixed, instructionConfig) {
+  // [].concat forces an array
+  return [].concat(fixed).map(src => {
+    const destBasename = handleBasenameDigits(src, instructionConfig);
+    return {
+      // setting isLast to false ensures the config will not be updated
+      // for this entry, so ti will be there until manually changed
+      isLast: false,
+      src: path.join(instructionConfig.srcPath, src),
+      dest: path.join(instructionConfig.destPath, destBasename),
+    };
+  });
+}
+
+// handles error messages
+function err(...args) {
+  console.log('ERROR: ', ...args);
 }
