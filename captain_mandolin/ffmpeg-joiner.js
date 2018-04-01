@@ -19,7 +19,6 @@ const rimraf = require('rimraf');
 const { getConfigOrDie, normalizePath } = require('./lib/shared');
 
 const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
-const SUFFIX = 'mp4';
 const SUFFIX_TMP = 'ts';
 const TEMP_DIR = path.join(__dirname, '.tmp');
 
