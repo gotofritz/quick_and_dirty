@@ -85,7 +85,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
         return outputAccumulator;
       },
       {
-        cmd: `ffmpeg -v quiet -y -i "${pth}" `,
+        cmd: `ffmpeg -y -i "${pth}" `,
         howManyDigitsNeeded: getDigitsNeeded(current.output.length),
         src: current.src,
         backtrack: current.backtrack || 0,

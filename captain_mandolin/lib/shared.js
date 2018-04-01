@@ -25,6 +25,16 @@ const getDigitsNeeded = forNumber => {
   return Math.ceil(Math.log10(forNumber + 1));
 };
 
+const logError = (...args) => {
+  console.log('ERROR:', ...args);
+};
+
+const log = (shouldLog, ...args) => {
+  if (shouldLog) {
+    console.log(...args);
+  }
+};
+
 const normalizePath = (pth, dirname) => {
   if (path.isAbsolute(pth)) {
     return pth;
@@ -35,6 +45,8 @@ const normalizePath = (pth, dirname) => {
 module.exports = {
   getConfigOrDie,
   getDigitsNeeded,
+  log,
+  logError,
   normalizePath,
   writeYaml,
 };
