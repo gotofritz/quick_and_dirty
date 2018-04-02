@@ -47,10 +47,11 @@ const {
   log,
   logError,
   normalisePath,
+  defaultConfigPath,
 } = require('./lib/shared');
 const { EVENT_FILELIST_WAS_GENERATED } = require('./lib/types');
 
-const DEFAULT_CONFIG = path.join(__dirname, 'captain_mandolin.config.yml');
+const DEFAULT_CONFIG = defaultConfigPath();
 const DEFAULT_CONFIG_BAK = DEFAULT_CONFIG.replace(
   /\.config\.yml/,
   '.config.yml.bak',

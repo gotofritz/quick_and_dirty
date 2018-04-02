@@ -1,0 +1,40 @@
+## _config:
+##    dest: default dest path
+##    srcRoot: path that will be prepended to all src
+##    tmp: path to temp folder, default __dirname/.tmp
+##    verbose: false
+_config:
+  dest: /a/path/to/a/folder
+  srcRoot: /also/a/path/to/a/folder
+instructions:
+  # video to process
+  - src: 'Frozen # Honest Trailers.mp4'
+    # at the time of writing only 'split' and 'join'
+    cmd: split
+    # in this case chop up into several files
+    output:
+      # because it's a ref and not an mp4, create a ts file
+      - ref: part1
+        # if no start and 1st item, start is the beginning
+        duration:
+          minutes: 2
+          seconds: 30
+          milliseconds: 900
+      - ref: part2
+        # if no start and not 1st item, start is previous output's end
+        #
+        # either end or duration can be passed
+        end:
+          minutes: 3
+          seconds: 50
+          milliseconds: 700
+      - ref: part3
+        # if no start and not 1st item, start is previous output's end
+        start:
+          minutes: 2
+          seconds: 44
+          milliseconds: 700
+        # if no duration, go to end
+  # if no srcs provided, use previous step's parts
+  # if no output (= filename) provided, use previous step's src (=input)
+  - cmd: join

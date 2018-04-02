@@ -8,10 +8,14 @@ const path = require('path');
 var exec = require('child_process').exec;
 const program = require('commander');
 
-const { getConfigOrDie, getDigitsNeeded } = require('./lib/shared');
+const {
+  getConfigOrDie,
+  getDigitsNeeded,
+  defaultConfigPath,
+} = require('./lib/shared');
 
 const DATETIME_FORMAT = 'hh:mm:ss';
-const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
+const DEFAULT_CONFIG = defaultConfigPath();
 const PREPEND_SEPARATOR = ' ';
 
 program

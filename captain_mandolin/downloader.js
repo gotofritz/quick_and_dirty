@@ -8,9 +8,13 @@ const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const argv = require('minimist')(process.argv.slice(2));
 
-const { getConfigOrDie, getDigitsNeeded } = require('./lib/shared');
+const {
+  getConfigOrDie,
+  getDigitsNeeded,
+  defaultConfigPath,
+} = require('./lib/shared');
 
-const DEFAULT_CONFIG = path.join(__dirname, './downloader.config.yml');
+const DEFAULT_CONFIG = defaultConfigPath();
 const PREPEND_SEPARATOR = ' ';
 const MAX_ATTEMPTS = 3;
 const TAB = '  ';
