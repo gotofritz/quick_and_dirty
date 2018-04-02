@@ -10,12 +10,17 @@ const rimraf = require('rimraf');
 var exec = require('child_process').exec;
 const program = require('commander');
 
-const { getConfigOrDie, logError, log } = require('./lib/shared');
+const {
+  getConfigOrDie,
+  logError,
+  log,
+  defaultConfigPath,
+} = require('./lib/shared');
 const { TYPE_JOIN, TYPE_SPLIT, TYPE_UNKNOWN } = require('./lib/types');
 const ffmpeg = require('./lib/ffmpeg');
 
 const DATETIME_FORMAT = 'hh:mm:ss.SSS';
-const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
+const DEFAULT_CONFIG = defaultConfigPath();
 const TEMP_DIR = path.join(__dirname, '.tmp');
 
 program

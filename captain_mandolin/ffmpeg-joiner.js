@@ -16,9 +16,13 @@ const program = require('commander');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
 
-const { getConfigOrDie, normalisePath } = require('./lib/shared');
+const {
+  getConfigOrDie,
+  normalisePath,
+  defaultConfigPath,
+} = require('./lib/shared');
 
-const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
+const DEFAULT_CONFIG = defaultConfigPath();
 const SUFFIX_TMP = 'ts';
 const TEMP_DIR = path.join(__dirname, '.tmp');
 

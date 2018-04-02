@@ -2,8 +2,11 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 
+module.exports.defaultConfigPath = (pth = module.parent.filename) =>
+  path.join(path.dirname(pth), 'config', path.basename(pth, '.js') + '.yml');
+
 // loads YAML or exits program
-const getConfigOrDie = pth => {
+module.exports.getConfigOrDie = pth => {
   if (!path.isAbsolute(pth)) {
     pth = path.join(__dirname, pth);
   }
@@ -15,45 +18,39 @@ const getConfigOrDie = pth => {
   }
 };
 
-const writeYaml = (pth, settings) => {
-  fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
-  return settings;
-};
-
 // how many digits needed to represent a number
-const getDigitsNeeded = forNumber => {
+module.exports.getDigitsNeeded = forNumber => {
   return Math.ceil(Math.log10(forNumber + 1));
 };
 
-const logError = (...args) => {
-  console.log('ERROR:', ...args);
-};
-
-const log = (shouldLog, ...args) => {
+// console.log allowing flags to control whether to log or not
+module.exports.log = (shouldLog, ...args) => {
   if (shouldLog) {
     console.log(...args);
   }
 };
 
-// creates a function that can match the beginning of a path with a seed one
-const matcherFactory = matchUpTo => {
-  const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
-  return pth => (pth.match(matchUpToRE) || [, pth])[1].trim();
+// simple error handling
+module.exports.logError = (...args) => {
+  console.log('ERROR:', ...args);
 };
 
-const normalisePath = (pth, dirname) => {
+// creates a function that can match the beginning of a path with a seed one
+module.exports.matcherFactory = matchUpTo => {
+  const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
+  return pth => (pth.match(matchUpToRE) || [undefined, pth])[1].trim();
+};
+
+// ensures path is absolite
+module.exports.normalisePath = (pth, dirname) => {
   if (path.isAbsolute(pth)) {
     return pth;
   }
   return path.join(dirname, pth);
 };
 
-module.exports = {
-  getConfigOrDie,
-  getDigitsNeeded,
-  log,
-  logError,
-  matcherFactory,
-  normalisePath,
-  writeYaml,
+// writes YAML into file
+module.exports.writeYaml = (pth, settings) => {
+  fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
+  return settings;
 };
