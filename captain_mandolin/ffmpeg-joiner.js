@@ -16,7 +16,7 @@ const program = require('commander');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
 
-const { getConfigOrDie, normalizePath } = require('./lib/shared');
+const { getConfigOrDie, normalisePath } = require('./lib/shared');
 
 const DEFAULT_CONFIG = __filename.replace(/\.js$/, '.config.yml');
 const SUFFIX_TMP = 'ts';
@@ -87,7 +87,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
         }
       }
 
-      const title = normalizePath(current.title, config.dest);
+      const title = normalisePath(current.title, config.dest);
       const tempFilePaths = [];
 
       // each instruction is a list of fragments that will be concatenated to
@@ -98,7 +98,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
 
         if (src in userData.shared) {
           srcPath = userData.shared[src];
-          tempFilePath = normalizePath(tempFile(src), config.srcRoot);
+          tempFilePath = normalisePath(tempFile(src), config.srcRoot);
 
           // shared files are only rendered if needed. We add to the list, and
           // when we have processed all files to be generated we add the whole list
@@ -109,7 +109,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
         } else {
           // NOTE that temporary *.ts files need to be unique, hence the -j-i
           // Another
-          srcPath = normalizePath(src, config.srcRoot);
+          srcPath = normalisePath(src, config.srcRoot);
           tempFilePath = tempFile(`${TEMP_REF_BASE}-${j}-${i}`);
 
           // TODO
