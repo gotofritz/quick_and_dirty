@@ -40,7 +40,15 @@ const fs = require('fs');
 const program = require('commander');
 const mkdirp = require('mkdirp');
 
-const { getConfigOrDie, writeYaml } = require('./lib/shared');
+const {
+  getConfigOrDie,
+  writeYaml,
+  matcherFactory,
+  log,
+  logError,
+  normalisePath,
+} = require('./lib/shared');
+const { EVENT_FILELIST_WAS_GENERATED } = require('./lib/types');
 
 const DEFAULT_CONFIG = path.join(__dirname, 'captain_mandolin.config.yml');
 const DEFAULT_CONFIG_BAK = DEFAULT_CONFIG.replace(
@@ -58,6 +66,7 @@ program
     DEFAULT_CONFIG,
   )
   .option(`-v, --verbose`, `verbose`)
+  .option(`-q, --quiet`, `quiet`)
   .option(`-a, --add <path>`, `add a directory`)
   .option(`-d, --dry-run`, `output file list instead of copying files`)
   .parse(process.argv);
@@ -70,6 +79,22 @@ const config = Object.assign(
   },
   userData._config,
 );
+
+// placeholder awaiting further work...
+const eventEmitter = {
+  events: {},
+  subscribe(evt, cb) {
+    (this.events[evt] = this.events[evt] || []).push(cb);
+  },
+  emit(evt, args) {
+    return (this.events[evt] = this.events[evt] || []).reduce(
+      (accumulator, cb) => {
+        return cb.call(null, accumulator);
+      },
+      args,
+    );
+  },
+};
 
 if (hasEnoughDataToWorkWith(config)) {
   writeYaml(DEFAULT_CONFIG_BAK, userData);
@@ -85,18 +110,23 @@ if (hasEnoughDataToWorkWith(config)) {
       (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0),
     );
     writeYaml(DEFAULT_CONFIG, userData);
-    console.log(`Done - added dir ${program.add}`);
+    log(!program.quiet, `Done - added dir ${program.add}`);
 
     // use script to move viles around
   } else {
+    // placeholder awaiting further work
+    require('./lib/rules/random')(eventEmitter);
+
     const filesToCopy = getListOfFilesToCopy(userData.instructions, config);
     if (program.dryRun) {
-      console.log(filesToCopy);
+      log(!program.quiet, filesToCopy);
+      updateUserDataInPlace(userData.instructions, filesToCopy);
+      log(!program.quiet, userData);
     } else {
       const copiedFiles = copyFiles(filesToCopy, config);
       updateUserDataInPlace(userData.instructions, copiedFiles);
       writeYaml(DEFAULT_CONFIG, userData);
-      console.log(`Done - ${copiedFiles.length} files copied`);
+      log(!program.quiet, `Done - ${copiedFiles.length} files copied`);
     }
   }
 }
@@ -118,7 +148,8 @@ function addInstruction(pth, instructions, { srcRoot = '' } = {}) {
     instruction => instruction.src === dir,
   );
   if (alreadyThereAt > -1) {
-    console.log(
+    log(
+      !program.quiet,
       `Directory already there - adding anyway. ${JSON.stringify(
         copyOfInstructions[alreadyThereAt],
         null,
@@ -140,6 +171,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
       // disabled = ignore
       if (instruction.disabled) return accumulator;
 
+      instruction.refToInstruction = refToInstruction;
       const { removeInitialDigits = config.removeInitialDigits } = instruction;
 
       // fixed = just copy the file(s) in the list and return, do nothing clever
@@ -154,6 +186,10 @@ function getListOfFilesToCopy(instructions, config = {}) {
         );
       }
 
+      // we keep the list of movies in a separate list for further processing
+      // before adding it to the master list
+      let candidates = [];
+
       // the src parameter in the instruction is the root for a deep search
       const globPath = path.join(
         config.srcRoot,
@@ -162,7 +198,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
       );
       let files = glob.sync(globPath, GLOB_SETTINGS);
       if (files.length === 0) {
-        err(`No files found with ${globPath}`);
+        logError(`No files found with ${globPath}`);
         return accumulator;
       }
 
@@ -171,7 +207,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
         const isFileToIgnore = new RegExp(instruction.ignore);
         files = files.filter(file => !isFileToIgnore.test(file));
         if (files.length === 0) {
-          err(
+          logError(
             `No files left in ${instruction.src} after applying ignore: ${
               instruction.ignore
             }`,
@@ -195,63 +231,81 @@ function getListOfFilesToCopy(instructions, config = {}) {
         files = rearrangeAsBreadthFirst(files, instruction);
       }
 
-      // next = the system uses .last, but when editing config manually it may
-      // be more convenient to enter what we want as next file (expecially if
-      // the last one was deleted or renamed)
-      const indexOfLast = instruction.next
-        ? files.indexOf(instruction.next) - 1
-        : instruction.last ? files.indexOf(instruction.last) : -1;
-
-      // we keep the list of movies in a separate list for further processing
-      // before adding it to the master list
-      let preList = [];
-
       // howMany = self-explanatory
-      // spread = like howMany, but instead of being next to each other they
-      // will be evenly spread across list. So if you have 10 files, with
-      // howMany: 2 it will fetch 1,2 this time and 3,4 next and so on;
-      // with spread: 2 it will fetch 1,5 this time and 2,6 next and so on
       instruction.howMany = instruction.spread || instruction.howMany || 1;
-      let increment = instruction.spread
-        ? files.length / instruction.spread
-        : 1;
-      let i, runningCount;
 
-      for (
-        i = runningCount = 1;
-        i <= instruction.howMany;
-        runningCount += increment, i++
-      ) {
-        const src =
-          files[(indexOfLast + Math.round(runningCount)) % files.length];
-        const destBasename = handleBasenameDigits(src, {
-          removeInitialDigits,
-        });
-        preList.push({
-          // for debugging
-          refToInstruction,
-          isLast: false,
+      ({ instruction, candidates } = eventEmitter.emit(
+        EVENT_FILELIST_WAS_GENERATED,
+        {
+          instruction,
+          files,
+          candidates,
+        },
+      ));
 
-          // the actual file copying data
-          src,
-          dest: path.join(instruction.dest || config.dest, destBasename),
-        });
+      // plugins may do their own thing, in which case we don't need to find
+      // files to copy. We can tell, because the candidates array has already
+      // been filled up
+      const shouldSkipMainLoop = candidates.length > 0;
+
+      if (!shouldSkipMainLoop) {
+        // next = the system uses .last, but when editing config manually it may
+        // be more convenient to enter what we want as next file (expecially if
+        // the last one was deleted or renamed)
+        const indexOfLast = instruction.next
+          ? files.indexOf(instruction.next) - 1
+          : instruction.last ? files.indexOf(instruction.last) : -1;
+
+        // spread = like howMany, but instead of being next to each other they
+        // will be evenly spread across list. So if you have 10 files, with
+        // howMany: 2 it will fetch 1,2 this time and 3,4 next and so on;
+        // with spread: 2 it will fetch 1,5 this time and 2,6 next and so on
+        instruction.howMany = instruction.spread || instruction.howMany;
+        let increment = instruction.spread
+          ? files.length / instruction.spread
+          : 1;
+        let i, runningCount;
+
+        for (
+          i = runningCount = 1;
+          i <= instruction.howMany;
+          runningCount += increment, i++
+        ) {
+          const src =
+            files[(indexOfLast + Math.round(runningCount)) % files.length];
+          const dest = handleBasenameDigits(src, {
+            removeInitialDigits,
+          });
+          candidates.push({
+            // for debugging
+            refToInstruction,
+            isLast: false,
+
+            // the actual file copying data
+            src,
+            dest,
+          });
+        }
+      }
+
+      // matchUpTo = if there are similarly named videos (typically numbered
+      // sequences such as Kudo Trailer #1.mp4 Kudo Trailer #2.mp4) get all
+      // those who who share the beginning of the name with the next one. "The
+      // beginning of the name" is defined as the part of the name from the
+      // beginning until the sequence of char(s) matchUpTo (in the example
+      // above that could be '#' or 'Trailer #')
+      if (instruction.matchUpTo) {
+        candidates = candidates.concat(
+          getSimilarlyNamedVideos(candidates, files, {
+            matchUpTo: instruction.matchUpTo,
+          }),
+        );
       }
 
       accumulator = accumulator.concat(
-        preList,
-
-        // matchUpTo = if there are similarly named videos (typically numbered
-        // sequences such as Kudo Trailer #1.mp4 Kudo Trailer #2.mp4) get all
-        // those who who share the beginning of the name with the next one. "The
-        // beginning of the name" is defined as the part of the name from the
-        // beginning until the sequence of char(s) matchUpTo (in the example
-        // above that could be '#' or 'Trailer #')
-        instruction.matchUpTo
-          ? getSimilarlyNamedVideos(preList, files, {
-              matchUpTo: instruction.matchUpTo,
-            })
-          : [],
+        candidates.map(candidate =>
+          normaliseCandidate(candidate, instruction, config),
+        ),
       );
 
       // isLast decides whether the file will be the one written as
@@ -264,21 +318,25 @@ function getListOfFilesToCopy(instructions, config = {}) {
   return filesToCopy;
 }
 
+function normaliseCandidate(candidate, instruction, config) {
+  candidate.src = normalisePath(candidate.src, config.srcRoot);
+  candidate.dest = path.join(instruction.dest || config.dest, candidate.dest);
+  return candidate;
+}
+
 // takes the array of file.src / file.dest produced by getListOfFilesToCopy and
 // does the actual copying. Returns a new array, with the same list but without
 // the files that caused an error
 function copyFiles(filesToCopy, { verbose } = {}) {
-  console.log('Copying files...');
+  log(!program.quiet, 'Copying files...');
   const arrayCopy = Array.from(filesToCopy);
   arrayCopy.forEach((file, i, arr) => {
-    if (verbose) {
-      console.log(`copying from ${file.src} to ${file.dest}`);
-    }
+    log(verbose, `copying from ${file.src} to ${file.dest}`);
     try {
       mkdirp.sync(path.dirname(file.dest));
       fs.copyFileSync(file.src, file.dest);
     } catch (e) {
-      err(e);
+      logError(e);
       // we rely on the fact that once a forEach loop is initialised, the array
       // it is working with is 'frozen' and any changes to it will not affect
       // the loop
@@ -341,12 +399,11 @@ function getSimilarlyNamedVideos(
   oneOfTheseVideos,
   { matchUpTo } = {},
 ) {
-  const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
-  const matcher = pth => pth.match(matchUpToRE) || [];
+  const matcher = matcherFactory(matchUpTo);
 
   const similarlyNamed = similarTo.reduce((accumulator, current) => {
     const currentBasename = path.basename(current.src);
-    const [basenameMatch] = matcher(currentBasename);
+    const basenameMatch = matcher(currentBasename);
     if (!basenameMatch) return accumulator;
 
     const isBasenameEqual = b =>
@@ -391,9 +448,4 @@ function pushFixed(fixed, instructionConfig) {
       dest: path.join(instructionConfig.destPath, destBasename),
     };
   });
-}
-
-// handles error messages
-function err(...args) {
-  console.log('ERROR: ', ...args);
 }
