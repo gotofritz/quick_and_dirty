@@ -35,7 +35,13 @@ const log = (shouldLog, ...args) => {
   }
 };
 
-const normalizePath = (pth, dirname) => {
+// creates a function that can match the beginning of a path with a seed one
+const matcherFactory = matchUpTo => {
+  const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
+  return pth => (pth.match(matchUpToRE) || [, pth])[1].trim();
+};
+
+const normalisePath = (pth, dirname) => {
   if (path.isAbsolute(pth)) {
     return pth;
   }
@@ -47,6 +53,7 @@ module.exports = {
   getDigitsNeeded,
   log,
   logError,
-  normalizePath,
+  matcherFactory,
+  normalisePath,
   writeYaml,
 };
