@@ -52,10 +52,13 @@ if (hasEnoughDataToWorkWith(config, userData)) {
   log(!program.quiet, 'Decoding instructions...');
 
   const { commands } = userData.instructions.reduce(
-    (accumulator, current, i) => {
-      const processInputInstructions = getProcessingInputInstructions(current);
+    (accumulator, instruction, i) => {
+      normaliseInstructionInPlace(instruction);
+      const processInputInstructions = getProcessingInputInstructions(
+        instruction,
+      );
       const { lastSrc, tempVideos, commands } = processInputInstructions({
-        instruction: current,
+        instruction: instruction,
         tempVideos: accumulator.tempVideos,
         i,
         lastSrc: accumulator.lastSrc,
@@ -67,7 +70,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
     },
     {
       // we store the last step because a join may want to join them
-      tempVideos: {},
+      tempVideos: new Map(),
       commands: [],
       lastSrc: '',
     },
@@ -111,6 +114,15 @@ function getInstructionType(instruction) {
   return TYPE_UNKNOWN;
 }
 
+// ensure the instruction (which comes straight from an user editable YAML file)
+// is usable
+function normaliseInstructionInPlace(instruction) {
+  if (Array.isArray(instruction.output)) {
+    // 'path' complains if output.ref is a number, which can very well happen
+    instruction.output.forEach(output => (output.ref = String(output.ref)));
+  }
+}
+
 function getProcessingInputStrategy(key) {
   const strategy = {
     [TYPE_JOIN]: generateJoinInstructions,
@@ -130,9 +142,11 @@ function getProcessingInputInstructions(instruction) {
 
 function generateSplitInstructions({ instruction }) {
   const originalSrc = path.join(config.srcRoot, instruction.src);
+
   const splitInstructions = [].concat(instruction.output).reduce(
     (accumulator, output) => {
       if (!output.ref && !output.filename) return accumulator;
+
       const start = getStart(output, accumulator.lastStart);
       const duration = getDuration(output, start);
 
@@ -173,42 +187,61 @@ function generateSplitInstructions({ instruction }) {
             dest: destConvertStep,
           }),
         );
-        accumulator.tempVideos[output.ref] = destConvertStep;
+        accumulator.tempVideos.set(output.ref, destConvertStep);
       }
       accumulator.lastStart = duration ? start.plus(duration) : 0;
       return accumulator;
     },
-    { lastSrc: instruction.src, tempVideos: {}, commands: [] },
+    { lastSrc: instruction.src, tempVideos: new Map(), commands: [] },
   );
   return splitInstructions;
 }
 
 function generateJoinInstructions({ instruction, tempVideos, lastSrc }) {
   const commands = { tempVideos, commands: [] };
-  if (!instruction.filename && !Array.isArray(instruction.src)) return commands;
+
+  // we don't know what to write, no point carrying on
+  if (!instruction.filename && !lastSrc) return commands;
+
+  // Q. what are we joining?
+  let src;
+  if (Array.isArray(instruction.src)) {
+    // A. whatever is specified in the instructions
+    src = instruction.src.map(current => tempVideos.get(current));
+  } else {
+    // A. nothing - no point carrying on
+    if (!tempVideos) return commands;
+    // A. everything that was specified in previous steps, in order
+    src = Array.from(tempVideos.values());
+  }
+  // after all that, we still have nothing to join
+  if (src.length === 0) return commands;
+
+  // 'repeat' does just what you expect
+  if (instruction.repeat) {
+    src = [].concat(Array(instruction.repeat * src.length).fill(src));
+  }
 
   const dest = path.join(
     instruction.dest || config.dest,
-    instruction.filename || as(instruction.src[0]),
+    instruction.filename || as(lastSrc),
   );
-  if (instruction.repeat) {
-    [].concat(...Array(4).fill([1, 2]));
-    instruction.src = [].concat(
-      Array(instruction.repeat * instruction.src.length).fill(instruction.src),
-    );
+
+  try {
+    rimraf.sync(dest);
+    return {
+      tempVideos,
+      commands: [
+        ffmpeg.join({
+          src,
+          dest,
+        }),
+      ],
+    };
+  } catch (err) {
+    logError(`Couldn't delete ${dest}`, err);
+    return commands;
   }
-  instruction.src;
-  const src = instruction.src.map(current => tempVideos[current]).join('|');
-  rimraf.sync(dest);
-  return {
-    tempVideos,
-    commands: [
-      ffmpeg.join({
-        src,
-        dest,
-      }),
-    ],
-  };
 }
 
 // with ffmpeg sometimes we convert files to a ts format, so that we can join

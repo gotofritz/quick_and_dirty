@@ -21,7 +21,7 @@ module.exports = {
 
   join: ({ src, dest }) =>
     [
-      `ffmpeg -i "concat:${src}" `,
+      `ffmpeg -i "concat:${src.join('|')}" `,
       '-c copy -bsf:a aac_adtstoasc ',
       `"${dest}"`,
     ].join(''),

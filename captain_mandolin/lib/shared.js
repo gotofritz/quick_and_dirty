@@ -2,7 +2,12 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 
-module.exports.as = (pth, suffix = 'mp4') => `${path.basename(pth)}.${suffix}`;
+module.exports.as = (pth, suffix = '.mp4') => {
+  if (suffix[0] !== '.') {
+    suffix = '.' + suffix;
+  }
+  return `${path.basename(pth, suffix)}${suffix}`;
+};
 
 module.exports.defaultConfigPath = (pth = module.parent.filename) =>
   path.join(
