@@ -15,6 +15,7 @@ const {
   logError,
   log,
   defaultConfigPath,
+  normalisePath,
 } = require('./lib/shared');
 const { TYPE_JOIN, TYPE_SPLIT, TYPE_UNKNOWN } = require('./lib/types');
 const ffmpeg = require('./lib/ffmpeg');
@@ -35,7 +36,7 @@ program
   .option(`-d, --dry-run`, `output file list instead of copying files`)
   .parse(process.argv);
 
-console.log('Reading config...');
+log(!program.quiet, 'Reading config...');
 const userData = getConfigOrDie(program.config);
 
 const config = Object.assign(
@@ -77,6 +78,7 @@ if (hasEnoughDataToWorkWith(config, userData)) {
     log(!program.quiet, commands);
   } else {
     mkdirp(TEMP_DIR);
+    rimraf.sync(path.join(TEMP_DIR, '*'));
     processQueue(commands);
   }
 }
@@ -133,25 +135,45 @@ function generateSplitInstructions({ instruction }) {
     (accumulator, output) => {
       const start = getStart(output, accumulator.lastStart);
       const duration = getDuration(output, start);
-      const tmpPth = path.join(TEMP_DIR, output.ref);
-      const tmpPthMP4 = `${tmpPth}.mp4`;
 
+      // refactoring candidate
+      let destConvertStep, destSplitStep;
+      const shouldConvert = isTempDest(output);
+      if (shouldConvert) {
+        destConvertStep = path.join(TEMP_DIR, output.ref);
+        destSplitStep = `${destConvertStep}.mp4`;
+      } else {
+        destSplitStep = normalisePath(
+          output.ref,
+          output.dest || instruction.dest || config.dest,
+        );
+      }
+
+      // if shouldConvert, this step should be unnecessary - we should be able
+      // to convert straight  to a ts without the mp4 step. But the timing is
+      // not as granular if we do it that way; it seems to force you into 2 secs
+      // windows (could be that there are missing parameters I don't know) So we
+      // split to have precise timing when converting to another mp4, then
+      // convert again because we can't joing without re-encoding with mp4
       accumulator.commands.push(
         ffmpeg.split({
           src: originalSrc,
           start: start.toFormat(DATETIME_FORMAT),
           duration: duration ? duration.toFormat(DATETIME_FORMAT) : '',
-          dest: tmpPthMP4,
+          dest: destSplitStep,
         }),
       );
-      accumulator.commands.push(
-        ffmpeg.convert({
-          src: tmpPthMP4,
-          dest: tmpPth,
-        }),
-      );
-      accumulator.storedForNextStep.push(tmpPth);
-      accumulator.lastStart = start;
+
+      if (shouldConvert) {
+        accumulator.commands.push(
+          ffmpeg.convert({
+            src: destSplitStep,
+            dest: destConvertStep,
+          }),
+        );
+        accumulator.storedForNextStep.push(destConvertStep);
+      }
+      accumulator.lastStart = duration ? start.plus(duration) : 0;
       return accumulator;
     },
     { lastSrc: instruction.src, storedForNextStep: [], commands: [] },
@@ -171,6 +193,12 @@ function generateJoinInstructions({ instruction, storedForNextStep, lastSrc }) {
       }),
     ],
   };
+}
+
+function isTempDest({ ref }) {
+  const SUFFIX = 'mp4';
+  const suffixLen = SUFFIX.lenght;
+  return ref.substr(-suffixLen) === SUFFIX;
 }
 
 function getStart(currentOutput, lastStart) {
