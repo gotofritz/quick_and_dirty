@@ -11,6 +11,7 @@ var exec = require('child_process').exec;
 const program = require('commander');
 
 const {
+  as,
   getConfigOrDie,
   logError,
   log,
@@ -53,22 +54,20 @@ if (hasEnoughDataToWorkWith(config, userData)) {
   const { commands } = userData.instructions.reduce(
     (accumulator, current, i) => {
       const processInputInstructions = getProcessingInputInstructions(current);
-      const { lastSrc, storedForNextStep, commands } = processInputInstructions(
-        {
-          instruction: current,
-          storedForNextStep: accumulator.storedForNextStep,
-          i,
-          lastSrc: accumulator.lastSrc,
-        },
-      );
+      const { lastSrc, tempVideos, commands } = processInputInstructions({
+        instruction: current,
+        tempVideos: accumulator.tempVideos,
+        i,
+        lastSrc: accumulator.lastSrc,
+      });
       accumulator.commands = accumulator.commands.concat(commands);
-      accumulator.storedForNextStep = storedForNextStep;
+      accumulator.tempVideos = tempVideos;
       accumulator.lastSrc = lastSrc;
       return accumulator;
     },
     {
       // we store the last step because a join may want to join them
-      storedForNextStep: [],
+      tempVideos: {},
       commands: [],
       lastSrc: '',
     },
@@ -133,20 +132,23 @@ function generateSplitInstructions({ instruction }) {
   const originalSrc = path.join(config.srcRoot, instruction.src);
   const splitInstructions = [].concat(instruction.output).reduce(
     (accumulator, output) => {
+      if (!output.ref && !output.filename) return accumulator;
       const start = getStart(output, accumulator.lastStart);
       const duration = getDuration(output, start);
 
       // refactoring candidate
       let destConvertStep, destSplitStep;
       const shouldConvert = isTempDest(output);
-      if (shouldConvert) {
-        destConvertStep = path.join(TEMP_DIR, output.ref);
-        destSplitStep = `${destConvertStep}.mp4`;
-      } else {
+      if (output.filename) {
         destSplitStep = normalisePath(
-          output.ref,
+          output.filename || as(output.ref, 'mp4'),
           output.dest || instruction.dest || config.dest,
         );
+      } else {
+        destSplitStep = normalisePath(as(output.ref, 'mp4'), TEMP_DIR);
+      }
+      if (shouldConvert) {
+        destConvertStep = normalisePath(output.ref, TEMP_DIR);
       }
 
       // if shouldConvert, this step should be unnecessary - we should be able
@@ -171,34 +173,49 @@ function generateSplitInstructions({ instruction }) {
             dest: destConvertStep,
           }),
         );
-        accumulator.storedForNextStep.push(destConvertStep);
+        accumulator.tempVideos[output.ref] = destConvertStep;
       }
       accumulator.lastStart = duration ? start.plus(duration) : 0;
       return accumulator;
     },
-    { lastSrc: instruction.src, storedForNextStep: [], commands: [] },
+    { lastSrc: instruction.src, tempVideos: {}, commands: [] },
   );
   return splitInstructions;
 }
 
-function generateJoinInstructions({ instruction, storedForNextStep, lastSrc }) {
-  const dest = path.join(config.dest, instruction.output || lastSrc);
+function generateJoinInstructions({ instruction, tempVideos, lastSrc }) {
+  const commands = { tempVideos, commands: [] };
+  if (!instruction.filename && !Array.isArray(instruction.src)) return commands;
+
+  const dest = path.join(
+    instruction.dest || config.dest,
+    instruction.filename || as(instruction.src[0]),
+  );
+  if (instruction.repeat) {
+    [].concat(...Array(4).fill([1, 2]));
+    instruction.src = [].concat(
+      Array(instruction.repeat * instruction.src.length).fill(instruction.src),
+    );
+  }
+  instruction.src;
+  const src = instruction.src.map(current => tempVideos[current]).join('|');
   rimraf.sync(dest);
   return {
-    storedForNextStep: [],
+    tempVideos,
     commands: [
       ffmpeg.join({
-        src: storedForNextStep.join('|'),
+        src,
         dest,
       }),
     ],
   };
 }
 
+// with ffmpeg sometimes we convert files to a ts format, so that we can join
+// them without re-encoding them; and sometimes we don't. The ts version goes
+// into a temp desti(ination). This function tells you whether it does or not
 function isTempDest({ ref }) {
-  const SUFFIX = 'mp4';
-  const suffixLen = SUFFIX.lenght;
-  return ref.substr(-suffixLen) === SUFFIX;
+  return Boolean(ref);
 }
 
 function getStart(currentOutput, lastStart) {
