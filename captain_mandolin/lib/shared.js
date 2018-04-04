@@ -3,7 +3,11 @@ const yaml = require('js-yaml');
 const path = require('path');
 
 module.exports.defaultConfigPath = (pth = module.parent.filename) =>
-  path.join(path.dirname(pth), 'config', path.basename(pth, '.js') + '.yml');
+  path.join(
+    path.dirname(pth),
+    'config',
+    path.basename(pth, '.js') + '.config.yml',
+  );
 
 // loads YAML or exits program
 module.exports.getConfigOrDie = pth => {
