@@ -6,22 +6,37 @@ const fs = require('fs');
 const path = require('path');
 const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
-const argv = require('minimist')(process.argv.slice(2));
+const exec = require('child_process').exec;
+const program = require('commander');
 
 const {
+  defaultConfigPath,
   getConfigOrDie,
   getDigitsNeeded,
-  defaultConfigPath,
+  log,
+  logError,
 } = require('./lib/shared');
 
 const DEFAULT_CONFIG = defaultConfigPath();
 const PREPEND_SEPARATOR = ' ';
 const MAX_ATTEMPTS = 3;
 const TAB = '  ';
-let debug = argv.debug || false;
 
-const userData = getConfigOrDie(argv.config || DEFAULT_CONFIG);
-console.log('Loading user data ...', debug ? userData : '');
+program
+  .version('0.0.1')
+  .option(
+    `-c, --config [path]`,
+    `path to a config file, default ${DEFAULT_CONFIG}`,
+    DEFAULT_CONFIG,
+  )
+  .option(`-v, --verbose`, `verbose`)
+  .option(`-q, --quiet`, `quiet`)
+  .option(`-d, --dry-run`, `output file list instead of copying files`)
+  .parse(process.argv);
+
+const userData = getConfigOrDie(program.config);
+log(!program.quiet, 'Loading user data ...');
+log(program.verbose, userData);
 
 const config = Object.assign(
   {
@@ -45,9 +60,14 @@ if (Array.isArray(userData.download)) {
     }
     return accumulator;
   }, []);
-  console.log('Decoding instructions...', debug ? instructions : '');
+  log(!process.quiet, 'Decoding instructions...');
+  log(process.verbose, instructions);
 
-  processQueue(instructions, postprocessing);
+  if (program.dryRun) {
+    log(true, instructions);
+  } else {
+    processQueue(instructions, postprocessing);
+  }
 }
 
 //////////////////////////////////////////////////////
@@ -56,14 +76,14 @@ if (Array.isArray(userData.download)) {
 function processQueue(queue, postQueue) {
   // stop recursing when finished
   if (!queue.length) {
-    console.log('DONE DOWNLOADING');
+    log(!program.quiet, 'DONE DOWNLOADING');
     postprocessQueue(postQueue);
     return;
   }
 
   // prepares to download a new video
   const instruction = normaliseInstruction(queue.shift());
-  if (debug) console.log(instruction);
+  log(process.verbose, instruction);
 
   const url = getUrl(instruction);
   const dest = getDest(instruction, config);
@@ -81,7 +101,7 @@ function processQueue(queue, postQueue) {
   instruction.attempts++;
 
   mkdirp.sync(dest);
-  console.log(`Downloading ${url}`);
+  log(!program.quiet, `Downloading ${url}`);
 
   // start downloading a new video
   const video = youtubedl(
@@ -123,10 +143,13 @@ function processQueue(queue, postQueue) {
       );
     }
     filename = `${dest}/${basename}`;
-    console.log(`filename: ${filename}
+    log(
+      !process.quiet,
+      `filename: ${filename}
     size: ${(Number(infoFromServer.size) / 1000000).toFixed(1)}Mb, duration: ${
-      infoFromServer.duration
-    }, ${queue.length} left to downalod`);
+        infoFromServer.duration
+      }, ${queue.length} left to downalod`,
+    );
     video.pipe(fs.createWriteStream(filename));
   });
 
@@ -136,9 +159,9 @@ function processQueue(queue, postQueue) {
       instruction.attempts >= MAX_ATTEMPTS ||
       /copyright|unavailable/i.test(id)
     ) {
-      console.log(`${TAB}COULD NOT DOWNLOAD: ${id}///`);
+      logError(`${TAB}COULD NOT DOWNLOAD: ${id}///`);
     } else {
-      console.log(
+      logError(
         `${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${
           instruction.attempts
         }`,
@@ -165,7 +188,7 @@ function processQueue(queue, postQueue) {
 
   // Starts next recursion
   video.on('end', () => {
-    console.log('');
+    log(true, '');
     processQueue(queue, postQueue);
   });
 
@@ -180,7 +203,7 @@ function processQueue(queue, postQueue) {
         prepend,
       };
     });
-    if (debug) console.log(playlistInstructions);
+    log(process.verbose, playlistInstructions);
     queue = playlistInstructions.concat(queue);
     processQueue(queue, postQueue);
   });
@@ -205,12 +228,22 @@ function getUrl({ service, code, type }) {
 }
 
 function postprocessQueue(queue) {
-  console.log('POST:', queue);
+  log(!program.quiet, 'postprocessQueue:', queue);
   // stop recursing when finished
-  // if (!queue.length) {
-  //   console.log('DONE');
-  //   return;
-  // }
+  if (queue.length === 0) {
+    log(!program.quiet, 'DONE');
+    return;
+  }
+
+  const command = queue.shift();
+  log(process.verbose, command);
+  exec(command, (err, stdout, stderr) => {
+    if (err) {
+      logError(err, stdout, stderr);
+    } else {
+      postprocessQueue(queue);
+    }
+  });
 }
 
 /**
