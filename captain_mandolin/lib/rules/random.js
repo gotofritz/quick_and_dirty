@@ -2,7 +2,7 @@ const path = require('path');
 const { matcherFactory } = require('../shared');
 const { EVENT_FILELIST_WAS_GENERATED } = require('../types');
 
-const MAX_HISTORY_LENGTH = 8;
+const MAX_HISTORY_LENGTH = 12;
 
 module.exports = hook => {
   hook.subscribe(
