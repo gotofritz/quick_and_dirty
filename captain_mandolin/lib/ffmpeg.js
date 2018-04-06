@@ -1,3 +1,8 @@
+const formatted = {
+  string: params => `ffmpeg ${params.join(' ')}`,
+  args: params => params,
+};
+
 module.exports = {
   split: ({ src, start, duration, dest }) =>
     [
@@ -19,10 +24,21 @@ module.exports = {
       `-f mpegts "${dest}"`,
     ].join(''),
 
-  join: ({ src, dest }) =>
-    [
-      `ffmpeg -i "concat:${src.join('|')}" `,
-      '-c copy -bsf:a aac_adtstoasc ',
+  join: ({ src, dest }, { as = 'string' } = {}) => {
+    const params = [
+      '-i',
+      `"concat:${src.join('|')}"`,
+      '-c',
+      'copy',
+      '-bsf:a',
+      'aac_adtstoasc',
       `"${dest}"`,
-    ].join(''),
+    ];
+    return formatted[as](params);
+  },
+
+  duration: ({ src }, { as = 'string' } = {}) => {
+    const params = ['-i', `${src}`, '2>&1'];
+    return formatted[as](params);
+  },
 };
