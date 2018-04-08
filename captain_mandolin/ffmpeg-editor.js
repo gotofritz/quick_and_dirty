@@ -125,12 +125,18 @@ function normaliseInstructionInPlace(instruction, config) {
   } else if (instruction.src) {
     instruction.src = normalisePath(instruction.src, config.srcRoot);
   }
-  normaliseOutputsInPlace(instruction.output, instruction.dest || config.dest);
+  instruction.dest = instruction.dest || config.dest;
+  normaliseOutputsInPlace({
+    outputArray: instruction.output,
+    dest: instruction.dest || config.dest,
+    src: instruction.src,
+  });
 }
 
-function normaliseOutputsInPlace(outputArray, dest) {
+function normaliseOutputsInPlace({ outputArray, dest, src }) {
   if (Array.isArray(outputArray)) {
     outputArray.forEach((outputInstruction, i) => {
+      outputInstruction.src = outputInstruction.src || src;
       // - if no 'ref' and no 'filename', assign a digit to 'ref'
       // - 'ref' must always be a string
       if (!outputInstruction.filename && !outputInstruction.ref) {
