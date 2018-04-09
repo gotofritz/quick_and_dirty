@@ -128,19 +128,12 @@ function processQueue(queue, postQueue) {
     ].join('');
     if (shouldBeConverted(basename)) {
       postprocessing.push(
-        `HandBrakeCLI -Z "Fast 1080p30" -i "${
-          config.tmp
-        }/${basename}" -o "${dest}/${basename.replace(
-          /\.[^.]{2,5}$/,
-          '.mp4',
-        )}"`,
-      );
-      postprocessing.push(
         `HandBrakeCLI -Z "Fast 1080p30" -i "${dest}/${basename}" -o "${dest}/${basename.replace(
           /\.[^.]{2,5}$/,
           '.mp4',
         )}"`,
       );
+      postprocessing.push(`rm "${dest}/${basename}"`);
     }
     filename = `${dest}/${basename}`;
     log(
