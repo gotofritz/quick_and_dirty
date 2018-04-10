@@ -7,18 +7,21 @@ const add = (addTo, src, instruction) => {
     src,
     dest: src,
   });
-  instruction.history.push(src);
+  instruction.history.push(Array.isArray(src) ? src[0] : src);
 };
 
 const getElegibleFiles = (allFiles, instruction) =>
-  allFiles.filter(file => !instruction.history.includes(file));
+  allFiles.filter(file => {
+    file = Array.isArray(file) ? file[0] : file;
+    return !instruction.history.includes(file);
+  });
 
 module.exports = fileCollectorEmitter => {
   fileCollectorEmitter.on(
     EVENT_FILELIST_WAS_GENERATED,
     ({ instruction, allFiles, filesToAdd }) => {
-      if (!instruction.random) return { instruction, filesToAdd };
-      if (allFiles.length === 0) return { instruction, filesToAdd };
+      if (!instruction.random || allFiles.length === 0)
+        return { instruction, filesToAdd };
 
       let howMany = (instruction.howMany = instruction.howMany || 1);
       instruction.history = instruction.history || [];

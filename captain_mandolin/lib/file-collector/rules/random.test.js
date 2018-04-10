@@ -9,6 +9,14 @@ const getMinimalData = function() {
   };
   return data;
 };
+const getDataWithFilegroups = function() {
+  let data = {
+    instruction: { random: 1 },
+    allFiles: [[8, 18, 28]],
+    filesToAdd: [],
+  };
+  return data;
+};
 
 describe('Behaves like all EVENT_FILELIST_WAS_GENERATED listeners', () => {
   test('returns instruction and filesToAdd', () => {
@@ -150,5 +158,49 @@ describe('Algorithm handles different combination of files and history', () => {
     expect(obj.instruction.history.length).toEqual(0);
     obj = emitter.fileListWasGenerated(input);
     expect(obj.instruction.history.length).toEqual(0);
+  });
+});
+
+describe('handles filegroups', () => {
+  test('history contains only first item of filegroup', () => {
+    const obj = emitter.fileListWasGenerated(getDataWithFilegroups());
+    expect(obj.instruction.history[0]).not.toBeInstanceOf(Array);
+  });
+
+  test('history contains src', () => {
+    const obj = emitter.fileListWasGenerated(getDataWithFilegroups());
+    expect(obj.instruction.history[0]).toEqual(obj.filesToAdd[0].src[0]);
+  });
+
+  test('if history empty, history and filesToAdd will contain only same file', () => {
+    const obj = emitter.fileListWasGenerated(getDataWithFilegroups());
+    expect(obj.instruction.history.length).toBe(1);
+    expect(obj.filesToAdd.length).toBe(1);
+    expect(obj.instruction.history[0]).toEqual(obj.filesToAdd[0].src[0]);
+  });
+
+  test('if history has files, filesToAdd will contain only files not in history', () => {
+    const input = getDataWithFilegroups();
+    const history = [8, 2, 3];
+    input.allFiles = [[8, 18, 28], 2, 3, 4];
+    input.instruction.history = Array.from(history);
+    const obj = emitter.fileListWasGenerated(input);
+    const actual = obj.filesToAdd.map(fileOjb => fileOjb.src);
+    actual.forEach(file => {
+      file = Array.isArray(file) ? file[0] : file;
+      expect(history).not.toContain(file);
+    });
+  });
+
+  test('if history is full, it will be reset', () => {
+    const input = getDataWithFilegroups();
+    const expected = [[8, 18, 28], 2, 3, 4, 5, 6];
+    input.allFiles = Array.from(expected);
+    input.instruction.history = expected.map(
+      file => (Array.isArray(file) ? file[0] : file),
+    );
+    const obj = emitter.fileListWasGenerated(input);
+    expect(obj.filesToAdd.length).toEqual(1);
+    expect(obj.instruction.history.length).toEqual(1);
   });
 });
