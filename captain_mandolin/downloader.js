@@ -48,6 +48,7 @@ const config = Object.assign(
 let postprocessing = [];
 
 if (Array.isArray(userData.download)) {
+  log(!program.quiet, 'Decoding instructions...');
   let instructions = userData.download.reduce((accumulator, entry) => {
     // normalises strings to objects
     if (entry.toLowerCase) {
@@ -60,8 +61,7 @@ if (Array.isArray(userData.download)) {
     }
     return accumulator;
   }, []);
-  log(!process.quiet, 'Decoding instructions...');
-  log(process.verbose, instructions);
+  log(program.verbose, instructions);
 
   if (program.dryRun) {
     log(true, instructions);
@@ -83,7 +83,7 @@ function processQueue(queue, postQueue) {
 
   // prepares to download a new video
   const instruction = normaliseInstruction(queue.shift());
-  log(process.verbose, instruction);
+  log(program.verbose, instruction);
 
   const url = getUrl(instruction);
   const dest = getDest(instruction, config);
@@ -119,6 +119,12 @@ function processQueue(queue, postQueue) {
 
   // Processes the initial server response to download start command
   video.on('info', infoFromServer => {
+    log(
+      program.verbose,
+      `[youtube-dl::INFO] queue: ${queue.length} postprocess: ${
+        postQueue.length
+      }`,
+    );
     size = infoFromServer.size;
     basename = [
       prepend,
@@ -137,7 +143,7 @@ function processQueue(queue, postQueue) {
     }
     filename = `${dest}/${basename}`;
     log(
-      !process.quiet,
+      !program.quiet,
       `filename: ${filename}
     size: ${(Number(infoFromServer.size) / 1000000).toFixed(1)}Mb, duration: ${
         infoFromServer.duration
@@ -179,26 +185,51 @@ function processQueue(queue, postQueue) {
     }
   });
 
-  // Starts next recursion
+  // The events emitted for a playlist are a bit awkward. There is no playlist
+  // as such; rather at the end of a video, after the END event was emitted, if
+  // the video happens to be in a playlist and there are further videos in the
+  // playlist, then the rest of the playlist is sent into a NEXT event. This is
+  // annoying, because
+  // you can't just listen to the 'next' event, as (1) you'll end up downloading
+  // the same videos several times, and (2) there'll be two streams side by
+  // side (that initiated by 'end' and that by 'next').
+  if (isYoutubePlaylist(instruction)) {
+    // only listen to this event for the first video of a playlist - otherwise
+    // you will keep on adding the 'remaining playlist videos' to the queue
+    // for every video in the playlist, which is !n downloads for a playlist of
+    // n videos
+    video.on('next', playlist => {
+      log(
+        program.verbose,
+        `[youtube-dl::NEXT] queue: ${queue.length} postprocess: ${
+          postQueue.length
+        }`,
+      );
+      const howManyDigitsNeeded = getDigitsNeeded(playlist.length);
+      const playlistInstructions = playlist.map(({ id }, i) => {
+        return {
+          ...asYoutubeInstructions({ codes: id, dest })[0],
+          ordinal: String(i + 1).padStart(howManyDigitsNeeded, '0'),
+          prepend,
+        };
+      });
+      //  log(program.verbose, playlistInstructions);
+      queue = playlistInstructions.concat(queue);
+      processQueue(queue, postQueue);
+    });
+  }
+
   video.on('end', () => {
     log(true, '');
-    processQueue(queue, postQueue);
-  });
-
-  // Specific to playlist - it gets the list of video and appends it to queue,
-  // then processes next item in the queue
-  video.on('next', playlist => {
-    const howManyDigitsNeeded = getDigitsNeeded(playlist.length);
-    const playlistInstructions = playlist.map(({ id }, i) => {
-      return {
-        ...asYoutubeInstructions({ codes: id, dest })[0],
-        ordinal: String(i + 1).padStart(howManyDigitsNeeded, '0'),
-        prepend,
-      };
-    });
-    log(process.verbose, playlistInstructions);
-    queue = playlistInstructions.concat(queue);
-    processQueue(queue, postQueue);
+    log(
+      program.verbose,
+      `[youtube-dl::END] queue: ${queue.length} postprocess: ${
+        postQueue.length
+      }`,
+    );
+    if (!isYoutubePlaylist(instruction)) {
+      processQueue(queue, postQueue);
+    }
   });
 }
 
@@ -209,6 +240,10 @@ function getDest({ dest = '' }, { dest: defaultDest = '' }) {
   return dest[0] === '/'
     ? dest
     : `${defaultDest}/${dest}`.replace(/\/{2,}/g, '/').replace(/\/$/, '');
+}
+
+function isYoutubePlaylist({ service, code, type }) {
+  return service === 'youtube' && type === 'playlist';
 }
 
 // given a service, and a type, formats it into a URL for getting videos
@@ -229,7 +264,7 @@ function postprocessQueue(queue) {
   }
 
   const command = queue.shift();
-  log(process.verbose, command);
+  log(program.verbose, command);
   exec(command, (err, stdout, stderr) => {
     if (err) {
       logError(err, stdout, stderr);
