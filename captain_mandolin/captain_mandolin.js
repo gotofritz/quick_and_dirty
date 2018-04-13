@@ -287,7 +287,10 @@ function getListOfFilesToCopy(instructions, config = {}) {
 
 function normaliseCandidate(candidate, instruction, config) {
   candidate.src = CaptnM.normalisePath(candidate.src, config.srcRoot);
-  candidate.dest = path.join(instruction.dest || config.dest, candidate.dest);
+  candidate.dest = path.join(
+    instruction.dest || config.dest,
+    path.basename(candidate.dest),
+  );
   return candidate;
 }
 
