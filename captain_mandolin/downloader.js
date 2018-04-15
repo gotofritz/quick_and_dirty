@@ -8,6 +8,7 @@ const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const exec = require('child_process').exec;
 const program = require('commander');
+const ffmpeg = require('./lib/ffmpeg');
 
 const {
   defaultConfigPath,
@@ -132,7 +133,7 @@ function processQueue(queue, postQueue) {
       PREPEND_SEPARATOR,
       infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
     ].join('');
-    if (shouldBeConverted(basename)) {
+    if (shouldBeConverted(basename, instruction.postprocess)) {
       postprocessing.push(
         `HandBrakeCLI -Z "Fast 1080p30" -i "${dest}/${basename}" -o "${dest}/${basename.replace(
           /\.[^.]{2,5}$/,
@@ -141,6 +142,18 @@ function processQueue(queue, postQueue) {
       );
       postprocessing.push(`rm "${dest}/${basename}"`);
     }
+    postprocessing.push(
+      ...instruction.postprocess.reduce(
+        (postprocessAccumulator, postCurrent) => {
+          const postprocessInstructions = postprocessStrategy(postCurrent, {
+            basename,
+            dest,
+          });
+          return postprocessAccumulator.concat(postprocessInstructions);
+        },
+        [],
+      ),
+    );
     filename = `${dest}/${basename}`;
     log(
       !program.quiet,
@@ -337,9 +350,26 @@ function isYoutubeVideo(code = '') {
 function normaliseInstruction(instruction = {}) {
   instruction.ordinal = instruction.ordinal || 0;
   instruction.attempts = instruction.attempts || 0;
+  instruction.postprocess = [].concat(instruction.postprocess);
   return instruction;
 }
 
-function shouldBeConverted(basename) {
-  return !/\.mp4$/.test(basename);
+function shouldBeConverted(basename, postprocess) {
+  return postprocess.length === 0 && !/\.mp4$/.test(basename);
+}
+
+function postprocessStrategy(ref, { dest, basename }) {
+  let postprocessInstructions = [];
+  const strategies = {
+    mp3: ({ dest, basename }) => [
+      ffmpeg.mp3({
+        src: `${dest}/${basename}`,
+        dest: `${dest}/${basename.replace(/\.[^.]{3,4}$/, '.mp3')}`,
+      }),
+    ],
+  };
+  if (ref in strategies) {
+    postprocessInstructions = strategies[ref]({ dest, basename });
+  }
+  return postprocessInstructions;
 }
