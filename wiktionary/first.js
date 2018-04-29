@@ -16,6 +16,10 @@
  * Output is a file wiktionary_output.txt with the original fields, some hard-
  * coded tags, and BACK in the same format as FRONT, i.e. wither a word or a
  * / separated list of words
+ *
+ * TODO: promisify
+ * https://medium.com/adobe-io/how-to-combine-rest-api-calls-with-javascript-promises-in-node-js-or-openwhisk-d96cbc10f299
+ * https://www.tomas-dvorak.cz/posts/nodejs-request-without-dependencies/
  */
 
 const https = require('https');
@@ -29,16 +33,6 @@ let wordsQueue = getLinesFromFile();
 let cardsQueue = [];
 
 processQueue(wordsQueue, cardsQueue);
-
-// input is a simple hard coded file with one instruction per line
-function getLinesFromFile(pth = INPUT_FILE_PATH) {
-  return fs
-    .readFileSync(pth)
-    .toString()
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line);
-}
 
 // asynchronously processes each instruction
 function processQueue(inputQueue, processedQueue) {
@@ -58,12 +52,31 @@ function processQueue(inputQueue, processedQueue) {
 
   // luckily wiktionary allow to look up more than one word at once, so we can
   // process each card as one unit
-  const req = https.request(makeRequestOptions(words), requestHandler);
+  const req = https.get(makeRequestUrl(words), requestHandler);
   req.on('error', e => {
     console.error(`problem with request: ${e.message}`);
   });
   req.end();
 }
+
+// function getContent() {
+//   return new Promise((resolve, reject) => {
+//     const request = lib.get(url, (response) => {
+//       // handle http errors
+//       if (response.statusCode < 200 || response.statusCode > 299) {
+//          reject(new Error('Failed to load page, status code: ' + response.statusCode));
+//        }
+//       // temporary data holder
+//       const body = [];
+//       // on every content chunk, push it to the data array
+//       response.on('data', (chunk) => body.push(chunk));
+//       // we are done, resolve promise with those joined chunks
+//       response.on('end', () => resolve(body.join('')));
+//     });
+//     // handle connection errors of the request
+//     request.on('error', (err) => reject(err))
+//     })
+// }
 
 // anki can import a simple tsv file, created here without error checking
 function writeOutput(processedQueue, pth = OUTPUT_FILE_PATH) {
@@ -75,26 +88,6 @@ function writeOutput(processedQueue, pth = OUTPUT_FILE_PATH) {
   fs.writeFileSync(pth, exportable, 'utf8');
 }
 
-// converts a string to an object
-// string is FRONT\tNOTE
-function createCard({ tabSeparated }) {
-  const card = {
-    tag: DEFAULT_TAGS,
-  };
-  [card.front, card.note = ''] = tabSeparated.split('\t');
-  return card;
-}
-
-// creates the options object for the http request, with hard coded URL
-function makeRequestOptions(words) {
-  const titles = encodeURIComponent(words.join('|'));
-  return {
-    hostname: 'de.wiktionary.org',
-    path: `/w/api.php?action=query&titles=${titles}&format=json&formatversion=2&prop=revisions&rvprop=content`,
-    port: 443,
-    method: 'GET',
-  };
-}
 // processes the API response
 function requestHandler(res) {
   let responseText = '';
@@ -147,4 +140,30 @@ function requestHandler(res) {
       console.log('RESPONSE PARSING ERROR', e);
     }
   });
+}
+
+// input is a simple hard coded file with one instruction per line
+function getLinesFromFile(pth = INPUT_FILE_PATH) {
+  return fs
+    .readFileSync(pth)
+    .toString()
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line);
+}
+
+// converts a string to an object
+// string is FRONT\tNOTE
+function createCard({ tabSeparated }) {
+  const card = {
+    tag: DEFAULT_TAGS,
+  };
+  [card.front, card.note = ''] = tabSeparated.split('\t');
+  return card;
+}
+
+// creates the options object for the http request, with hard coded URL
+function makeRequestUrl(words) {
+  const titles = encodeURIComponent(words.join('|'));
+  return `https://de.wiktionary.org/w/api.php?action=query&titles=${titles}&format=json&formatversion=2&prop=revisions&rvprop=content`;
 }
