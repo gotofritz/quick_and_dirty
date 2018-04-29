@@ -45,38 +45,78 @@ function processQueue(inputQueue, processedQueue) {
   const card = createCard({
     tabSeparated: inputQueue.shift(),
   });
-  cardsQueue.push(card);
 
   // front can be either  either a word or a list / of / words
   const words = card.front.split(/\s+\/\s+/);
 
   // luckily wiktionary allow to look up more than one word at once, so we can
   // process each card as one unit
-  const req = https.get(makeRequestUrl(words), requestHandler);
-  req.on('error', e => {
-    console.error(`problem with request: ${e.message}`);
-  });
-  req.end();
+  const url = makeRequestUrl(words);
+
+  getDataFromAPI(url, card)
+    .then(processdCard => {
+      processedQueue.push(processdCard);
+      processQueue(inputQueue, processedQueue);
+    })
+    .catch(err => console.log(err));
 }
 
-// function getContent() {
-//   return new Promise((resolve, reject) => {
-//     const request = lib.get(url, (response) => {
-//       // handle http errors
-//       if (response.statusCode < 200 || response.statusCode > 299) {
-//          reject(new Error('Failed to load page, status code: ' + response.statusCode));
-//        }
-//       // temporary data holder
-//       const body = [];
-//       // on every content chunk, push it to the data array
-//       response.on('data', (chunk) => body.push(chunk));
-//       // we are done, resolve promise with those joined chunks
-//       response.on('end', () => resolve(body.join('')));
-//     });
-//     // handle connection errors of the request
-//     request.on('error', (err) => reject(err))
-//     })
-// }
+function getDataFromAPI(url, card) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, response => {
+      if (response.statusCode < 200 || response.statusCode > 299) {
+        reject(
+          new Error(
+            `Couldn't get data from API, status code: ${response.statusCode}`,
+          ),
+        );
+      }
+
+      let responseText = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => (responseText += chunk));
+      response.on('end', () => {
+        if (!responseText) {
+          reject(new Error(`No response text collected`));
+        }
+
+        // this is where all the knowledge of the Wiktionary API data format is
+        // it's basically a weird object full of huge strings to be processed with
+        // regular expressions (yuck!)
+        const pages = JSON.parse(responseText).query.pages;
+
+        // each 'page' is the data associated with a word in CARD FRONT
+        ({ back: card.back, front: card.front } = pages.reduce(
+          (accumulator, current, i) => {
+            accumulator.front =
+              i === 0
+                ? current.title
+                : `${accumulator.front} / ${current.title}`;
+            if (!current.revisions) return accumulator;
+
+            const phonetics = current.revisions[0].content.match(
+              /\{\{Lautschrift\|(.+?)\}\}/,
+            );
+            const back = phonetics ? phonetics[1] : '--';
+            accumulator.back =
+              i === 0 ? back : `${accumulator.back || '--'} / ${back}`;
+            return accumulator;
+          },
+          {
+            back: '',
+            front: '',
+          },
+        ));
+        console.log(card);
+        resolve(card);
+      });
+    });
+    request.on('error', e => {
+      reject(new Error(`problem with request: ${e.message}`));
+    });
+    request.end();
+  });
+}
 
 // anki can import a simple tsv file, created here without error checking
 function writeOutput(processedQueue, pth = OUTPUT_FILE_PATH) {
@@ -86,60 +126,6 @@ function writeOutput(processedQueue, pth = OUTPUT_FILE_PATH) {
     '',
   );
   fs.writeFileSync(pth, exportable, 'utf8');
-}
-
-// processes the API response
-function requestHandler(res) {
-  let responseText = '';
-
-  if (res.statusCode !== 200) {
-    console.log(`STATUS: ${res.statusCode}`);
-    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-    console.log(cardsQueue.pop());
-  }
-  res.setEncoding('utf8');
-
-  res.on('data', chunk => {
-    responseText += chunk;
-  });
-
-  res.on('end', () => {
-    if (!responseText) return;
-
-    // this is where all the knowledge of the Wiktionary API data format is
-    // it's basically a weird object full of huge strings to be processed with
-    // regular expressions (yuck!)
-    try {
-      const pages = JSON.parse(responseText).query.pages;
-      const card = cardsQueue.pop();
-
-      // each 'page' is the data associated with a word in CARD FRONT
-      ({ back: card.back, front: card.front } = pages.reduce(
-        (accumulator, current, i) => {
-          accumulator.front =
-            i === 0 ? current.title : `${accumulator.front} / ${current.title}`;
-          if (!current.revisions) return accumulator;
-
-          const phonetics = current.revisions[0].content.match(
-            /\{\{Lautschrift\|(.+?)\}\}/,
-          );
-          const back = phonetics ? phonetics[1] : '--';
-          accumulator.back =
-            i === 0 ? back : `${accumulator.back || '--'} / ${back}`;
-          return accumulator;
-        },
-        {
-          back: '',
-          front: '',
-        },
-      ));
-      console.log(card);
-      cardsQueue.push(card);
-      processQueue(wordsQueue, cardsQueue);
-    } catch (e) {
-      console.log('RESPONSE PARSING ERROR', e);
-    }
-  });
 }
 
 // input is a simple hard coded file with one instruction per line
