@@ -149,7 +149,10 @@ function processQueue(queue, postQueue) {
             basename,
             dest,
           });
-          return postprocessAccumulator.concat(postprocessInstructions);
+          return postprocessAccumulator.concat(
+            postprocessInstructions,
+            `rm "${dest}/${basename}"`,
+          );
         },
         [],
       ),
@@ -160,7 +163,9 @@ function processQueue(queue, postQueue) {
       `filename: ${filename}
     size: ${(Number(infoFromServer.size) / 1000000).toFixed(1)}Mb, duration: ${
         infoFromServer.duration
-      }, ${queue.length} left to downalod`,
+      }, ${queue.length} left to download, ${
+        postprocessing.length
+      } to postprocess`,
     );
     video.pipe(fs.createWriteStream(filename));
   });
@@ -269,7 +274,7 @@ function getUrl({ service, code, type }) {
 }
 
 function postprocessQueue(queue) {
-  log(!program.quiet, 'postprocessQueue:', queue);
+  log(program.verbose, 'postprocessQueue:', queue);
   // stop recursing when finished
   if (queue.length === 0) {
     log(!program.quiet, 'DONE');
@@ -277,7 +282,7 @@ function postprocessQueue(queue) {
   }
 
   const command = queue.shift();
-  log(program.verbose, command);
+  log(!program.quiet, command);
   exec(command, (err, stdout, stderr) => {
     if (err) {
       logError(err, stdout, stderr);
@@ -350,7 +355,9 @@ function isYoutubeVideo(code = '') {
 function normaliseInstruction(instruction = {}) {
   instruction.ordinal = instruction.ordinal || 0;
   instruction.attempts = instruction.attempts || 0;
-  instruction.postprocess = [].concat(instruction.postprocess);
+  instruction.postprocess = instruction.postprocess
+    ? [].concat(instruction.postprocess)
+    : [];
   return instruction;
 }
 
