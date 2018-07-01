@@ -237,6 +237,7 @@ function getOutputsFromSections(instruction) {
     if (index < sectionsCount) {
       outputInstruction.end = thisEnd.toObject();
     }
+    outputInstruction.dest = instruction.dest;
     output.push(outputInstruction);
     previousEnd = thisEnd;
   }

@@ -44,7 +44,7 @@ module.exports = {
 
   mp3: ({ src, dest }, { as = 'string' } = {}) => {
     const params = [
-      `-i "${src}" `,
+      '-i'`${src}`,
       '-y',
       '-c:a',
       'libmp3lame',
@@ -52,7 +52,7 @@ module.exports = {
       '320k',
       '-profile:v',
       '0',
-      `"${dest}"`,
+      `${dest}`,
     ];
     return formatted[as](params);
   },

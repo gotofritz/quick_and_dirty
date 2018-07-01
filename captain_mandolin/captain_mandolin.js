@@ -414,7 +414,7 @@ function pushFixed(fixed, instructionConfig) {
       // setting isLast to false ensures the config will not be updated
       // for this entry, so ti will be there until manually changed
       isLast: false,
-      src: path.join(instructionConfig.srcPath, src),
+      src: CaptnM.normalisePath(src, instructionConfig.srcPath),
       dest: path.join(instructionConfig.destPath, destBasename),
     };
   });

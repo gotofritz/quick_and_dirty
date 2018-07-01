@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
-const exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
 const program = require('commander');
 const ffmpeg = require('./lib/ffmpeg');
 
@@ -134,13 +134,18 @@ function processQueue(queue, postQueue) {
       infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
     ].join('');
     if (shouldBeConverted(basename, instruction.postprocess)) {
-      postprocessing.push(
-        `HandBrakeCLI -Z "Fast 1080p30" -i "${dest}/${basename}" -o "${dest}/${basename.replace(
-          /\.[^.]{2,5}$/,
-          '.mp4',
-        )}"`,
-      );
-      postprocessing.push(`rm "${dest}/${basename}"`);
+      postprocessing.push({
+        cmd: 'HandBrakeCLI',
+        args: [
+          '-Z',
+          'Fast 1080p30',
+          '-i',
+          `${dest}/${basename}`,
+          '-o',
+          `${dest}/${basename.replace(/\.[^.]{2,5}$/, '.mp4')}`,
+        ],
+      });
+      postprocessing.push({ cmd: 'rm', args: [`${dest}/${basename}`] });
     }
     postprocessing.push(
       ...instruction.postprocess.reduce(
@@ -149,10 +154,10 @@ function processQueue(queue, postQueue) {
             basename,
             dest,
           });
-          return postprocessAccumulator.concat(
-            postprocessInstructions,
-            `rm "${dest}/${basename}"`,
-          );
+          return postprocessAccumulator.concat(postprocessInstructions, {
+            cmd: 'rm',
+            args: [`${dest}/${basename}`],
+          });
         },
         [],
       ),
@@ -273,7 +278,7 @@ function getUrl({ service, code, type }) {
     : '';
 }
 
-function postprocessQueue(queue) {
+async function postprocessQueue(queue) {
   log(program.verbose, 'postprocessQueue:', queue);
   // stop recursing when finished
   if (queue.length === 0) {
@@ -283,13 +288,18 @@ function postprocessQueue(queue) {
 
   const command = queue.shift();
   log(!program.quiet, command);
-  exec(command, (err, stdout, stderr) => {
-    if (err) {
-      logError(err, stdout, stderr);
-    } else {
-      postprocessQueue(queue);
-    }
+  const child = spawn(command.cmd, command.args || []);
+  child.on('exit', code => {
+    postprocessQueue(queue);
   });
+  if (program.verbose) {
+    for await (const data of child.stdout) {
+      console.log(`Stdout from the child: ${data}`);
+    }
+  }
+  for await (const data of child.stderr) {
+    log(true, `postprocessing Error: ${data}`);
+  }
 }
 
 /**
@@ -368,12 +378,16 @@ function shouldBeConverted(basename, postprocess) {
 function postprocessStrategy(ref, { dest, basename }) {
   let postprocessInstructions = [];
   const strategies = {
-    mp3: ({ dest, basename }) => [
-      ffmpeg.mp3({
-        src: `${dest}/${basename}`,
-        dest: `${dest}/${basename.replace(/\.[^.]{3,4}$/, '.mp3')}`,
-      }),
-    ],
+    mp3: ({ dest, basename }) => ({
+      cmd: ref,
+      args: ffmpeg.mp3(
+        {
+          src: `${dest}/${basename}`,
+          dest: `${dest}/${basename.replace(/\.[^.]{3,4}$/, '.mp3')}`,
+        },
+        { as: 'args' },
+      ),
+    }),
   };
   if (ref in strategies) {
     postprocessInstructions = strategies[ref]({ dest, basename });
