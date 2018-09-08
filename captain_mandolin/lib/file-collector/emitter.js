@@ -2,17 +2,36 @@ const EventEmitter = require('events');
 
 const { EVENT_FILELIST_WAS_GENERATED } = require('../types');
 
+/**
+ * FileCollectorEmitter
+ * @extends EventEmitter
+ *
+ * Each FileCollector plugin subscribes to this EventEmitter. At various stages
+ * during the FileCollector lifecycle, this will emit events, and the plugins
+ * will react by updating the data held in the FileCollector. So for example the
+ * FileCollector will say "I read all the source files for this instruction,
+ * here's a list" and then the random plugin will say "ok, pick this and that
+ * file from the list and prepare to copy them".
+ *
+ * This is done by taking advantage of the facts that js is single threaded, so
+ * all plugins will change the data in a sequence and not concurrently; and also
+ * of the fact objects are passed by reference, so the objects passed on to a
+ * plugin will be the same one the previous plugin has updated.
+ */
 class FileCollectorEmitter extends EventEmitter {
   fileListWasGenerated({
     instruction = {},
     allFiles = [],
     filesToAdd = [],
   } = {}) {
+    // all plugins will respons to this, but in order, no concurrency issues.
+    // They will also modify instruction and filesToAdd
     this.emit(EVENT_FILELIST_WAS_GENERATED, {
       instruction,
       allFiles,
       filesToAdd,
     });
+    // both will have been modified by the plugins
     return { instruction, filesToAdd };
   }
 }

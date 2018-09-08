@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
 /**
+ * TODO:
+ * - src should allow arrays
+ */
+
+/**
+ * (This script will be renamed "file_collector", hence the includes)
  * Script to move a selection of movie files in rotation from one repository
  * folder to a detination folder. Say you have a repo with this structure:
  * Cartoons/

@@ -29,6 +29,7 @@ module.exports = fileCollectorEmitter => {
     EVENT_FILELIST_WAS_GENERATED,
     ({ instruction, allFiles, filesToAdd }) => {
       if (!instruction.random || allFiles.length === 0)
+        // TODO do we actually have to return anything?
         return { instruction, filesToAdd };
 
       let howMany = (instruction.howMany = instruction.howMany || 1);

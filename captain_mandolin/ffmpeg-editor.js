@@ -4,10 +4,11 @@
  */
 
 const LuxonDuration = require('luxon').Duration;
+const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
-const { exec, spawnSync } = require('child_process');
+const { exec, spawnSync, spawn } = require('child_process');
 const program = require('commander');
 
 const {
@@ -19,12 +20,20 @@ const {
   defaultConfigPath,
   normalisePath,
 } = require('./lib/shared');
-const { TYPE_JOIN, TYPE_SPLIT, TYPE_UNKNOWN } = require('./lib/types');
-const ffmpeg = require('./lib/ffmpeg');
+const {
+  TYPE_JOIN,
+  TYPE_SPLIT,
+  TYPE_CONVERT,
+  TYPE_UNKNOWN,
+  DEFAULT_VIDEO_EXT,
+} = require('./lib/types');
+const videoProcessor = require('./lib/video-processor');
 
 const DATETIME_FORMAT = 'hh:mm:ss.SSS';
 const DEFAULT_CONFIG = defaultConfigPath();
 const TEMP_DIR = path.join(__dirname, '.tmp');
+const REGISTERED_CMDS = Object.freeze([TYPE_JOIN, TYPE_SPLIT, TYPE_CONVERT]);
+const asMilliseconds = obj => LuxonDuration.fromObject(obj).as('milliseconds');
 
 program
   .version('0.0.1')
@@ -52,105 +61,242 @@ log(program.verbose, config);
 if (hasEnoughDataToWorkWith(config, userData)) {
   log(!program.quiet, 'Decoding instructions...');
 
-  const { commands } = userData.instructions.reduce(
-    (accumulator, instruction, i) => {
-      normaliseInstructionInPlace(instruction, config);
-      const processInputInstructions = getProcessingInputInstructions(
-        instruction,
-      );
-      const { lastSrc, tempVideos, commands } = processInputInstructions({
-        instruction: instruction,
-        tempVideos: accumulator.tempVideos,
-        i,
-        lastSrc: accumulator.lastSrc,
-      });
-      accumulator.commands = accumulator.commands.concat(commands);
-      accumulator.tempVideos = tempVideos;
-      accumulator.lastSrc = lastSrc;
-      return accumulator;
-    },
-    {
-      // we store the last step because a join may want to join them
-      tempVideos: new Map(),
-      commands: [],
-      lastSrc: '',
-    },
-  );
+  const instructions = userData.instructions
+    .filter(rejectUnknownCmd)
 
-  if (program.dryRun) {
-    log(!program.quiet, commands);
-  } else {
-    mkdirp(TEMP_DIR);
-    rimraf.sync(path.join(TEMP_DIR, '*'));
-    processQueue(commands);
-  }
+    // YAML -> normalised instructions ->
+    // The config can define as input a list of files and / or directories, but
+    // in the end for some commands we want to have one instruction for each
+    // input file, for others one instruction for each output file. Each with
+    // its minimum required params, either from the instruction itself or from
+    // defaults
+    .reduce((accumulator, originalInstruction) => {
+      accumulator = accumulator.concat(
+        normaliseInstruction(originalInstruction, config),
+      );
+      return accumulator;
+    }, []);
+  log(program.verbose, 'Normalised instructions', instructions);
+
+  // YAML -> normalised instructions -> ffmepg commands
+  const cliCommands = instructions.reduce((accumulator, instruction) => {
+    accumulator = accumulator.concat(generateCommand(instruction));
+    return accumulator;
+  }, []);
+  log(program.verbose, 'cliCommands', cliCommands);
+  processQueue(cliCommands);
+
+  // process.exit();
+  // const { commands } = instructions.reduce(
+  //   (accumulator, instruction, i) => {
+  //     const processInputInstructions = getProcessingInputInstructions(
+  //       instruction,
+  //     );
+  //     const { lastSrc, tempVideos, commands } = processInputInstructions({
+  //       instruction: instruction,
+  //       tempVideos: accumulator.tempVideos,
+  //       i,
+  //       lastSrc: accumulator.lastSrc,
+  //     });
+  //     accumulator.commands = accumulator.commands.concat(commands);
+  //     accumulator.tempVideos = tempVideos;
+  //     accumulator.lastSrc = lastSrc;
+  //     return accumulator;
+  //   },
+  //   {
+  //     // we store the last step because a join may want to join them
+  //     tempVideos: new Map(),
+  //     commands: [],
+  //     lastSrc: '',
+  //   },
+  // );
+
+  // if (program.dryRun) {
+  //   log(!program.quiet, commands);
+  // } else {
+  //   mkdirp(TEMP_DIR);
+  //   rimraf.sync(path.join(TEMP_DIR, '*'));
+  //   processQueue(commands);
+  // }
+}
+
+function rejectUnknownCmd({ cmd = TYPE_UNKNOWN, src = '[none]' }) {
+  if (REGISTERED_CMDS.includes(cmd)) return true;
+
+  log(
+    !program.quiet,
+    `Warning: rejecting unknown command ${cmd}, src: [${src}]`,
+  );
+  return false;
 }
 
 function hasEnoughDataToWorkWith(data = {}, yamlData) {
   return data.srcRoot && data.dest && Boolean(yamlData.instructions);
 }
 
-function getInstructionType(instruction) {
-  if (instruction.cmd) {
-    if ([TYPE_JOIN, TYPE_SPLIT].includes(instruction.cmd)) {
-      return instruction.cmd;
-    } else {
-      return TYPE_UNKNOWN;
-    }
-  }
-  if (
-    Array.isArray(instruction.src) &&
-    instruction.output &&
-    !Array.isArray(instruction.output)
-  ) {
-    return TYPE_JOIN;
-  }
-  if (
-    instruction.src &&
-    !Array.isArray(instruction.src) &&
-    Array.isArray(instruction.output)
-  ) {
-    return TYPE_SPLIT;
-  }
-  return TYPE_UNKNOWN;
-}
-
 // ensure the instruction (which comes straight from an user editable YAML file)
 // is usable
-function normaliseInstructionInPlace(instruction, config) {
-  if (Array.isArray(instruction.src)) {
-    instruction.src = instruction.src.map(src =>
-      normalisePath(src, config.srcRoot),
-    );
-  } else if (instruction.src) {
-    instruction.src = normalisePath(instruction.src, config.srcRoot);
-  }
+function normaliseInstruction(instruction, config) {
+  let normalisedInstructions = [];
+  // some normalisations are useful for all commands
   instruction.dest = instruction.dest || config.dest;
-  normaliseOutputsInPlace({
-    outputArray: instruction.output,
-    dest: instruction.dest || config.dest,
-    src: instruction.src,
+  instruction.src = normaliseSrcToArray(instruction, config);
+
+  switch (instruction.cmd) {
+    case TYPE_SPLIT:
+      if (!instruction.backtrack && config.backtrack) {
+        instruction.backtrack = config.backtrack;
+      }
+      normalisedInstructions = createOneInstructionForEachSrc(instruction);
+      break;
+
+    case TYPE_CONVERT:
+      normalisedInstructions = createOneInstructionForEachSrc(instruction).map(
+        generateDestFromSrc,
+      );
+      break;
+
+    case TYPE_JOIN:
+      normalisedInstructions = normaliseJoinInstruction(instruction);
+      break;
+  }
+  return normalisedInstructions;
+  // normaliseOutputsInPlace({
+  //   outputArray: instruction.output,
+  //   dest: instruction.dest || config.dest,
+  //   src: instruction.src,
+  // });
+}
+
+function generateDestFromSrc(instruction) {
+  instruction.dest = path.join(
+    instruction.dest,
+    path.basename(instruction.src, path.extname(instruction.src)) +
+      DEFAULT_VIDEO_EXT,
+  );
+  return instruction;
+}
+
+function normaliseSrcToArray(instruction, config) {
+  // It makes it easier to ensure src is always an array of files with
+  // absolute path, resolving directories, relative paths, etc.
+  return (
+    []
+      // Force an array
+      .concat(instruction.src)
+      // ensures each entries in array are absolute paths
+      .map(individualSrc => normalisePath(individualSrc, config.srcRoot))
+      // if individualSrc is a dir, resolves into a list of files
+      .reduce((accumulator, individualSrc) => {
+        try {
+          if (fs.lstatSync(individualSrc).isDirectory()) {
+            accumulator.push(
+              ...fs
+                .readdirSync(individualSrc)
+                .filter(file => file[0] !== '.')
+                .map(file => path.join(individualSrc, file)),
+            );
+          } else {
+            accumulator.push(individualSrc);
+          }
+        } catch (e) {
+          log(!program.quiet, `ERROR when looking for  ${individualSrc}`);
+        }
+        return accumulator;
+      }, [])
+  );
+}
+
+function normaliseJoinInstruction(instruction) {
+  return instruction;
+}
+
+function createOneInstructionForEachSrc(instruction) {
+  // For split we want each instruction to have one input file
+  let { src, ...instructionDefaults } = instruction;
+  // creates an instruction for every entry in src, using the information
+  // we had put aside earlier
+  return src.map(individualSrc => ({
+    src: individualSrc,
+    ...instructionDefaults,
+  }));
+}
+
+function normaliseInstructionOutput({ output, dest, src }) {
+  output.forEach((outputInstruction, i) => {
+    outputInstruction.src = outputInstruction.src || src;
+    // - if no 'ref' and no 'filename', assign a digit to 'ref'
+    // - 'ref' must always be a string
+    if (!outputInstruction.filename && !outputInstruction.ref) {
+      outputInstruction.ref = i;
+    }
+    if ('ref' in outputInstruction) {
+      outputInstruction.ref = String(outputInstruction.ref);
+    }
+    // ensure each instruction has a dest
+    if (!outputInstruction.dest) {
+      outputInstruction.dest = dest;
+    }
   });
 }
 
-function normaliseOutputsInPlace({ outputArray, dest, src }) {
-  if (Array.isArray(outputArray)) {
-    outputArray.forEach((outputInstruction, i) => {
-      outputInstruction.src = outputInstruction.src || src;
-      // - if no 'ref' and no 'filename', assign a digit to 'ref'
-      // - 'ref' must always be a string
-      if (!outputInstruction.filename && !outputInstruction.ref) {
-        outputInstruction.ref = i;
-      }
-      if ('ref' in outputInstruction) {
-        outputInstruction.ref = String(outputInstruction.ref);
-      }
-      // ensure each instruction has a dest
-      if (!outputInstruction.dest) {
-        outputInstruction.dest = dest;
-      }
-    });
+function generateCommand(instruction) {
+  const strategy = {
+    [TYPE_JOIN]: generateJoinInstructions,
+    [TYPE_SPLIT]: generateSplitCommand,
+    [TYPE_CONVERT]: generateConvertCommand,
+    [TYPE_UNKNOWN]: () => logError(`UNKNOWN INSTRUCTION TYPE`),
+  };
+  return strategy[instruction.cmd](instruction);
+}
+
+function generateConvertCommand({ src, dest } = {}) {
+  return videoProcessor.mp4({
+    src,
+    dest,
+  });
+}
+
+function generateSplitCommand({
+  src,
+  dest,
+  sections: { backtrack, duration, filename = '{basename} # {i}' },
+}) {
+  log(program.verbose, 'generateSplitCommand / src', src);
+  log(program.verbose, 'generateSplitCommand / duration', duration);
+  log(program.verbose, 'generateSplitCommand / backtrack', backtrack);
+  log(program.verbose, 'generateSplitCommand / dest', dest);
+  log(program.verbose, 'generateSplitCommand / filename', filename);
+  const backtrackDuration = backtrack ? asMilliseconds(backtrack) : 0;
+  const wholeVideoDuration = getVideoDuration(src) + backtrackDuration;
+  const basename = path.basename(src, path.extname(src));
+  let maxSegmentDuration = asMilliseconds(duration) + backtrackDuration;
+  let numberOfSegments = Math.ceil(wholeVideoDuration / maxSegmentDuration);
+  let actualSegmentDuration = wholeVideoDuration / numberOfSegments;
+
+  let ongoingSegmentStart = 0;
+  let commands = [];
+  let padding = getDigitsNeeded(numberOfSegments);
+  for (let i = 0; i < numberOfSegments; i++) {
+    const videoProcessorArgs = {
+      src,
+      dest: path.join(
+        dest,
+        filename
+          .replace(/\{basename\}/, basename)
+          .replace(/\{i\}/, String(i + 1).padStart(padding, '0')) +
+          DEFAULT_VIDEO_EXT,
+      ),
+      start: ongoingSegmentStart,
+    };
+    if (i < numberOfSegments - 1) {
+      videoProcessorArgs.duration = actualSegmentDuration;
+    }
+    commands.push(videoProcessor.split(videoProcessorArgs));
+    ongoingSegmentStart =
+      ongoingSegmentStart + actualSegmentDuration - backtrackDuration;
   }
+  return commands;
 }
 
 function getProcessingInputStrategy(key) {
@@ -167,7 +313,7 @@ function getProcessingInputStrategy(key) {
 }
 
 function getProcessingInputInstructions(instruction) {
-  return getProcessingInputStrategy(getInstructionType(instruction));
+  return getProcessingInputStrategy(instruction.cmd);
 }
 
 function generateSplitInstructions({ instruction }) {
@@ -189,20 +335,18 @@ function generateSplitInstructions({ instruction }) {
 
 function getOutputsFromSections(instruction) {
   const { src, sections } = instruction;
-  const CALCULATION_UNIT = 'milliseconds';
-  const wholeVideoDuration = getVideoDuration({ src });
-  const wholeVideoAs = wholeVideoDuration.as(CALCULATION_UNIT);
-  let sectionDuration = LuxonDuration.fromObject(sections.duration);
-  let sectionAs = sectionDuration.as(CALCULATION_UNIT);
+  const wholeVideoDuration = getVideoDuration(src);
+  let sectionDuration = asMilliseconds(sections.duration);
   // adjust section length to ensure video is split into chunks of equal lengths
   // TODO
   // this keeps number of sections constant and always increases length; it
   // may be nice to keep length of each section closer to that in the config,
   // and increase / decrease number of sections as needed
-  const sectionsCount = Math.floor(wholeVideoAs / sectionAs);
+  const sectionsCount = Math.floor(wholeVideoDuration / sectionDuration);
   const indexDigits = getDigitsNeeded(sectionsCount);
-  sectionAs = sectionAs + (wholeVideoAs % sectionAs) / sectionsCount;
-  sectionDuration = LuxonDuration.fromMillis(Math.round(sectionAs));
+  sectionDuration =
+    sectionDuration + (wholeVideoDuration % sectionDuration) / sectionsCount;
+  sectionDuration = LuxonDuration.fromMillis(Math.round(sectionDuration));
   const backtrackDuration = LuxonDuration.fromObject(sections.backtrack || {});
 
   const output = [];
@@ -214,7 +358,7 @@ function getOutputsFromSections(instruction) {
     filenameOrPathValue =
       path.dirname(sections.filename) +
       '/' +
-      path.basename(sections.filename, '.mp4') +
+      path.basename(sections.filename, DEFAULT_VIDEO_EXT) +
       ' {i}' +
       '.mp4';
   } else {
@@ -245,8 +389,8 @@ function getOutputsFromSections(instruction) {
   return output;
 }
 
-function getVideoDuration({ src }) {
-  const timingCommandArgs = ffmpeg.duration({ src }, { as: 'args' });
+function getVideoDuration(src) {
+  const timingCommandArgs = videoProcessor.duration({ src }, { as: 'args' });
   const spawnProcess = spawnSync('ffmpeg', timingCommandArgs);
   const processErrorOutput = spawnProcess.stderr.toString().trim();
   let dateTimeObj = {};
@@ -262,7 +406,7 @@ function getVideoDuration({ src }) {
     dateTimeObj.seconds,
     dateTimeObj.milliseconds,
   ] = durationMatches.map(m => Number(m));
-  return LuxonDuration.fromObject(dateTimeObj);
+  return asMilliseconds(dateTimeObj);
 }
 
 function getSplitInstructionsFromOutputs({ output }) {
@@ -297,7 +441,7 @@ function getSplitInstructionsFromOutputs({ output }) {
       // Whatever happens, we want a 'split to mp4' step, which may be in the
       // final or in the temp folder
       accumulator.commands.push(
-        ffmpeg.split({
+        videoProcessor.split({
           src: outputInstruction.src,
           start: start.toFormat(DATETIME_FORMAT),
           duration: duration ? duration.toFormat(DATETIME_FORMAT) : '',
@@ -308,7 +452,7 @@ function getSplitInstructionsFromOutputs({ output }) {
       // If needed we take the mp4 segment and convert it.
       if (shouldConvert) {
         accumulator.commands.push(
-          ffmpeg.convert({
+          videoProcessor.convert({
             src: destSplitStep,
             dest: destConvertStep,
           }),
@@ -380,7 +524,7 @@ function generateJoinInstructions({ instruction, tempVideos, lastSrc }) {
     return {
       tempVideos,
       commands: [
-        ffmpeg.join({
+        videoProcessor.join({
           src,
           dest,
         }),
@@ -426,19 +570,25 @@ function getDuration(current, start) {
   return duration;
 }
 
-function processQueue(queue) {
+async function processQueue(queue) {
+  log(program.verbose, 'processQueue:', queue);
   if (queue.length === 0) {
-    log(!program.quiet, 'Done');
+    log(!program.quiet, 'DONE');
     process.exit();
   }
 
   const command = queue.shift();
-  log(program.verbose, command);
-  exec(command, (err, stdout, stderr) => {
-    if (err) {
-      logError(err, stdout, stderr);
-    } else {
-      processQueue(queue);
-    }
+  log(!program.quiet, command);
+  const child = spawn(command.cmd, command.args || []);
+  child.on('exit', code => {
+    processQueue(queue);
   });
+  if (program.verbose) {
+    for await (const data of child.stdout) {
+      console.log(`Stdout from the child: ${data}`);
+    }
+  }
+  for await (const data of child.stderr) {
+    log(true, `postprocessing Error: ${data}`);
+  }
 }

@@ -8,7 +8,7 @@ const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const spawn = require('child_process').spawn;
 const program = require('commander');
-const ffmpeg = require('./lib/ffmpeg');
+const ffmpeg = require('./lib/video-processor');
 
 const {
   defaultConfigPath,
@@ -378,16 +378,14 @@ function shouldBeConverted(basename, postprocess) {
 function postprocessStrategy(ref, { dest, basename }) {
   let postprocessInstructions = [];
   const strategies = {
-    mp3: ({ dest, basename }) => ({
-      cmd: ref,
-      args: ffmpeg.mp3(
+    mp3: ({ dest, basename }) =>
+      ffmpeg.mp3(
         {
           src: `${dest}/${basename}`,
           dest: `${dest}/${basename.replace(/\.[^.]{3,4}$/, '.mp3')}`,
         },
         { as: 'args' },
       ),
-    }),
   };
   if (ref in strategies) {
     postprocessInstructions = strategies[ref]({ dest, basename });

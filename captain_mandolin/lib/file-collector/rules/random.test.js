@@ -1,5 +1,4 @@
 const emitter = require('../emitter');
-const random = require('./random')(emitter);
 const { EVENT_FILELIST_WAS_GENERATED } = require('../../types');
 const getMinimalData = function() {
   let data = {
