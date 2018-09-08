@@ -25,19 +25,21 @@
 const https = require('https');
 const fs = require('fs');
 
+const Anki = require('../anki/anki');
+
 const INPUT_FILE_PATH = __dirname + '/wiktionary_input.txt';
 const OUTPUT_FILE_PATH = __dirname + '/wiktionary_output.txt';
-const DEFAULT_TAGS = 'deu phonetics';
+const DEFAULT_TAGS = 'deu.phonetics';
 
 let wordsQueue = getLinesFromFile();
-let cardsQueue = [];
 
-processQueue(wordsQueue, cardsQueue);
+Anki.loadTemplate('SINGLE');
+processQueue(wordsQueue, Anki);
 
 // asynchronously processes each instruction
-function processQueue(inputQueue, processedQueue) {
+function processQueue(inputQueue, dataWriter) {
   if (inputQueue.length === 0) {
-    return writeOutput(processedQueue);
+    return dataWriter.write(OUTPUT_FILE_PATH);
   }
 
   // translates a tab-separated instruction into an object with fields, and
@@ -54,9 +56,9 @@ function processQueue(inputQueue, processedQueue) {
   const url = makeRequestUrl(words);
 
   getDataFromAPI(url, card)
-    .then(processdCard => {
-      processedQueue.push(processdCard);
-      processQueue(inputQueue, processedQueue);
+    .then(processedCard => {
+      dataWriter.add(processedCard);
+      processQueue(inputQueue, dataWriter);
     })
     .catch(err => console.log(err));
 }
@@ -107,7 +109,6 @@ function getDataFromAPI(url, card) {
             front: '',
           },
         ));
-        console.log(card);
         resolve(card);
       });
     });
@@ -116,16 +117,6 @@ function getDataFromAPI(url, card) {
     });
     request.end();
   });
-}
-
-// anki can import a simple tsv file, created here without error checking
-function writeOutput(processedQueue, pth = OUTPUT_FILE_PATH) {
-  var exportable = processedQueue.reduce(
-    (accumulator, { front, back = '', note = '', tag }, i) =>
-      `${i === 0 ? '' : accumulator + '\n'}${front}\t${back}\t${note}\t${tag}`,
-    '',
-  );
-  fs.writeFileSync(pth, exportable, 'utf8');
 }
 
 // input is a simple hard coded file with one instruction per line
@@ -142,7 +133,7 @@ function getLinesFromFile(pth = INPUT_FILE_PATH) {
 // string is FRONT\tNOTE
 function createCard({ tabSeparated }) {
   const card = {
-    tag: DEFAULT_TAGS,
+    tags: DEFAULT_TAGS,
   };
   [card.front, card.note = ''] = tabSeparated.split('\t');
   return card;
