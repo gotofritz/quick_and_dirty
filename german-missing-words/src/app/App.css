@@ -1,0 +1,99 @@
+:root {
+  --tag-color: #fafafa;
+  --tag-width: 6rem;
+}
+
+.app {
+  align-content: stretch;
+  background-color: pink;
+  display: flex;
+  flex-direction: row;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+    'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 28px;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.text {
+  background-color: #fafafa;
+  width: 32rem;
+  padding: 1rem;
+}
+
+.side {
+  background-color: #fafafa;
+  border-left: 1px dotted silver;
+  width: 19.8rem;
+  padding: 1rem;
+}
+
+.guessable {
+  background-color: var(--tag-color);
+  display: inline-block;
+  margin: -0.2rem 0;
+  padding: 0;
+  text-align: center;
+  width: var(--tag-width);
+}
+
+.guessable input {
+  background-color: var(--tag-color);
+  border: none;
+  border-bottom: 1px solid black;
+  font: inherit;
+  padding: 0 0.2rem;
+  text-align: center;
+  width: 100%;
+}
+
+.typed {
+  font-weight: 700;
+}
+
+.disabled {
+  opacity: 0.5;
+}
+
+.tag {
+  background-color: #ffb600;
+  display: inline-block;
+  font-weight: 700;
+  margin: 0.2rem;
+  padding: 0.2rem;
+}
+
+.guessed {
+  text-decoration: line-through;
+}
+
+.solution {
+  border-bottom: 1px dashed silver;
+  display: block;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.solution button {
+  background-color: green;
+  border: 1px solid black;
+  box-shadow: 2px 2px 10px silver;
+  color: #fff;
+  font-size: 1rem;
+  padding: 0.4rem;
+  width: 100%;
+}
+
+.correct {
+  border: 10px solid green;
+}
+
+.wrong {
+  border: 10px solid red;
+}
+
+.unsure {
+  border: 10px solid transparent;
+}
