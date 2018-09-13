@@ -12,50 +12,42 @@ Das Image der Partei der radikalen Aktivisten haben sie [[zwar]] abgelegt, denno
 const isGuessable = i => i % 2 === 1;
 
 class App extends Component {
-  initialState = {
-    blocks: [],
-    tags: [],
-    typed: '',
-    percentage: -1,
-  };
+  // once the text is loaded it is split and saved here - so that it can be
+  // easily reset later
+  initialBlocks = [];
+
   state = {
     blocks: [],
     tags: [],
     typed: '',
+    lastTyped: '',
     percentage: -1,
   };
 
-  componentDidMount() {
-    Promise.resolve(dummyText).then(t => {
-      const blocks = t.split(/[[\]]{2,2}/).map((el, i) => {
-	const id = i;
-	let block = {
-	  id,
-	  text: el,
-	};
-	if (isGuessable(i)) {
-	  block = {
-	    isGuessable: true,
-	    onBlur: this.onBlur.bind(null, id),
-	    onChange: this.onChange.bind(null, id),
-	    guess: '',
-	    ...block,
-	  };
-	}
-	return block;
-      });
-      const tags = blocks
-	.filter(tag => tag.isGuessable)
-	.map(tag => ({ id: tag.id, text: tag.text }));
-      tags.sort((a, b) => (a.text < b.text ? -1 : 1));
-      this.setState({ blocks, tags });
-      this.initialState.blocks = blocks.map(block => ({ ...block }));
-      this.initialState.tags = tags.map(tag => ({ ...tag }));
+  // creates a blank state
+  initState() {
+    this.setState({
+      typed: '',
+      percentage: -1,
+      blocks: [
+	...this.initialBlocks.map(block => ({
+	  onBlur: this.onBlur.bind(null, block.id),
+	  onChange: this.onChange.bind(null, block.id),
+	  onFocus: this.onFocus.bind(null, block.id),
+	  ...block,
+	})),
+      ],
     });
   }
 
-  onChange = (id, e) => {
-    const typed = e.target.value;
+  // placeholder
+  loadText() {
+    return Promise.resolve(dummyText);
+  }
+
+  // the input element is a controlled element; this is the function that
+  // updates it
+  updateGuess = (id, typed) => {
     this.setState(prevState => {
       const blocks = [...prevState.blocks];
       blocks[id].guess = typed;
@@ -63,57 +55,139 @@ class App extends Component {
     });
   };
 
+  // For now the tags are mixed with the normal text blocks - not a long term
+  // solution, but it makes no sense to optimise prematurely. This allows you to
+  // find tags and pass a series of criteria (like 'where' in _.find)
+  // You can also order it and select just one
+  getTags = ({ predicate = {}, ordered = false, single = false } = {}) => {
+    predicate.isGuessable = true;
+
+    // runs every test in predicate on block and returns true if they all pass
+    const onlyTheseBlocks = block => {
+      return Object.entries(predicate).every(([k, v]) => block[k] === v);
+    };
+    const tags = this.state.blocks.filter(onlyTheseBlocks);
+    if (ordered) {
+      tags.sort((a, b) => (a.text < b.text ? -1 : 1));
+    }
+    return single ? tags[0] : tags;
+  };
+
+  // starts everything
+  componentDidMount() {
+    this.loadText().then(t => {
+      this.initialBlocks = t.split(/[[\]]{2,2}/).map(
+	(el, i) =>
+	  isGuessable(i)
+	    ? {
+		id: i,
+		text: el,
+		isGuessable: true,
+		guess: '',
+		isUsed: false,
+		lastId: -1,
+	      }
+	    : {
+		id: i,
+		text: el,
+	      },
+      );
+      this.initState();
+    });
+  }
+
+  // basic controlled form input
+  onChange = (id, e) => {
+    // no trim here - you are still in the middle of typing, the space may be
+    // important
+    this.updateGuess(id, e.target.value);
+  };
+
+  // Saved the content of the form field at the start to restore it if needed,
+  // or to otherwsie manage it
+  onFocus = (id, e) => {
+    const typed = e.target.value || '';
+    this.setState(prevState => ({
+      lastTyped: typed,
+      typed,
+    }));
+  };
+
+  // Goes through all the fields and works out with one is correct and which one isn't
   onClickSolution = e => {
     this.setState(prevState => {
-      let correct = 0;
+      let correctOnes = 0;
+      let numberOfTags = 0;
+
       const blocks = prevState.blocks.map(block => {
+	if (!block.isGuessable) return block;
+
+	numberOfTags += 1;
 	const newBlock = { ...block };
-	if (!block.isGuessable) return newBlock;
 	if (block.guess === block.text) {
 	  newBlock.correct = true;
-	  correct++;
+	  correctOnes += 1;
 	} else {
 	  newBlock.correct = false;
 	  newBlock.guess = `${newBlock.guess} (${newBlock.text})`;
 	}
 	return newBlock;
       });
-      const percentage = Number(correct * 100 / this.state.tags.length).toFixed(
-	1,
-      );
+      const percentage = Number(correctOnes * 100 / numberOfTags).toFixed(1);
       return { typed: '', blocks, percentage };
     });
   };
 
   onReset = () => {
-    this.setState({
-      blocks: this.initialState.blocks.map(block => ({ ...block })),
-      tags: this.initialState.tags.map(tag => ({ ...tag })),
-    });
+    this.initState();
   };
 
+  // Does most of the work. See if what you've typed is legit, whether it was
+  // already used, and updates state accortdinglu
   onBlur = (id, e) => {
-    const typed = e.target.value.trim();
-    let guessExists;
-    let indexTag;
-    for (indexTag = 0; indexTag < this.state.tags.length; indexTag++) {
-      if (this.state.tags[indexTag].text === typed) {
-	guessExists = true;
-	break;
-      }
+    const typed = this.state.typed.trim();
+    if (typed === this.state.lastTyped) return;
+
+    let foundTag;
+    let isUsed;
+    if (typed === '') {
+      // the user may have deleted an existing entry, then we may need to clean up
+      foundTag = this.getTags({
+	predicate: { text: this.state.lastTyped },
+	single: true,
+      });
+      isUsed = false;
+    } else {
+      // trying to work out whether user has typed something useful
+      foundTag = this.getTags({
+	predicate: { text: typed },
+	single: true,
+      });
+      isUsed = true;
     }
+
     this.setState(prevState => {
       const newState = { typed: '' };
       newState.blocks = [...prevState.blocks];
-      newState.blocks[id].guess = guessExists ? typed : '';
-      if (guessExists) {
-	newState.tags = [...prevState.tags];
-	newState.tags[indexTag].guessed = true;
+      // somewhing was changed; we need to deal with i
+      if (foundTag) {
+	newState.blocks[id].guess = typed;
+	newState.blocks[foundTag.id].isUsed = isUsed;
+	// if the tag was already used elsewhere, we clear the old usage
+	if (foundTag.lastId >= 0) {
+	  newState.blocks[foundTag.lastId].guess = '';
+	}
+	newState.blocks[foundTag.id].lastId = id;
+
+	// nothing useful was typed, we restore last entry
+      } else {
+	newState.blocks[id].guess = this.state.lastTyped;
       }
       return newState;
     });
   };
 
+  // For the part of the UI with the text in it
   renderText = blocks =>
     blocks.map(
       block =>
@@ -125,19 +199,20 @@ class App extends Component {
 	    key={block.id}
 	    onBlur={block.onBlur}
 	    onChange={block.onChange}
+	    onFocus={block.onFocus}
 	  />
 	) : (
 	  <NormalText key={block.id} text={block.text} />
 	),
     );
 
-  renderSide = tags =>
+  renderTags = tags =>
     tags.map(tag => (
       <Tag
 	key={tag.id}
 	text={tag.text}
 	typed={this.state.typed}
-	guessed={tag.guessed}
+	isUsed={tag.isUsed}
       />
     ));
 
@@ -151,7 +226,7 @@ class App extends Component {
 	    onReset={this.onReset}
 	    percentage={this.state.percentage}
 	  />
-	  {this.renderSide(this.state.tags)}
+	  {this.renderTags(this.getTags({ ordered: true }))}
 	</div>
       </div>
     );
@@ -186,6 +261,7 @@ function GuessBox(props) {
 	value={props.guess}
 	onChange={props.onChange}
 	onBlur={props.onBlur}
+	onFocus={props.onFocus}
       />
     </div>
   );
@@ -195,12 +271,12 @@ function NormalText({ text }) {
   return <span className="normal">{text}</span>;
 }
 
-function Tag({ typed = '', text = '', guessed = false }) {
-  const enabled = !guessed && typed === text.substr(0, typed.length);
+function Tag({ typed = '', text = '', isUsed = false }) {
+  const enabled = !isUsed && typed === text.substr(0, typed.length);
   const prefix = enabled ? typed : '';
   const postfix = enabled ? text.substr(typed.length) : text;
-  const className = `tag ${guessed || !enabled ? 'disabled ' : ''} ${
-    guessed ? 'guessed' : ''
+  const className = `tag ${isUsed || !enabled ? 'disabled ' : ''} ${
+    isUsed ? 'guessed' : ''
   }`;
   return (
     <span className={className}>
