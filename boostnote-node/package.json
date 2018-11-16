@@ -1,0 +1,17 @@
+{
+  "name": "boostnote-node",
+  "version": "0.1.0",
+  "description": "Creates nodes from various pages around the new",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "gotofritz",
+  "license": "ISC",
+  "dependencies": {
+    "mustache": "3.0.0",
+    "puppeteer": "1.8.0",
+    "uuid": "3.3.2"
+  }
+}
