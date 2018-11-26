@@ -5,80 +5,64 @@ const Mustache = require('mustache');
 const {
   dataIsNotEmpty,
   getPageProcessorStrategy,
-  newNotePath
+  loadInstructions,
+  newNotePath,
+  newNoteRef,
 } = require('./lib/lib');
 
-const TEMPLATE_FILE_PATH = __dirname + '/note.mustache';
-const PATH_BOOSTNOTE = '/Volumes/WD2T/BOOSTNOTE/notes';
-const FOLDER_KEY = '8d6087855d66fe528c03';
-const PATH_URLS_FILE = __dirname + '/urls.txt';
+const {
+  TEMPLATE_FILE_PATH,
+  FOLDER_KEY,
+  PATH_URLS_FILE,
+} = require('./lib/const');
+
+let browser;
+let page;
 
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
-const browser = await puppeteer.launch();
-
-const urls = fs
-  .readFileSync(PATH_URLS_FILE, 'utf8')
-  .split(/\n+/)
-  .filter(line => {
-    const trimmed = line.trim();
-    return trimmed.length > 0 && !/^\s*#/.test(trimmed);
-  })
-  .map(line => {
-    // don't forget .split(xxx, 2) will only stop at two matches and discard the
-    // rest, not return you a string with the rest - so we get 'the rest' as an
-    // array and then manually join it below
-    const [url, ...tags] = line.split(/\s+/);
-    return {
-      url,
-      // so, tags is potentially an array like this:
-      // ['my', 'tag', ',', 'and,another', 'tag']
-      // and we want to get back to
-      // ['my tag', 'and', 'another tag']
-      tags: tags
-        // we undo the previous split by \s - we only needed it to splut url
-        // from list of tag
-        .join(' ')
-        // that's the split we really wanted
-        .split(',')
-        .map(tag => tag.trim())
-    };
-  });
-processFile(urls);
+const instructionsQueue = loadInstructions({ pth: PATH_URLS_FILE });
+processFile(instructionsQueue);
 
 async function processFile(queue) {
-  const page = await browser.newPage();
-  let url;
-  let tags;
-
-  let { url, tags } = queue.shift();
-  console.log(`Trying ${url} ....`);
+  if (!browser) {
+    browser = await puppeteer.launch();
+    page = await browser.newPage();
+  }
+  let { src, tags } = queue.shift();
+  console.log(`Trying ${src} ....`);
+  let noteRef = newNoteRef();
   let noteData = {
     folder: FOLDER_KEY,
-    url,
+    src,
     tags,
-    updated: new Date().toISOString()
+    updated: new Date().toISOString(),
+    noteRef,
   };
 
-  await page.goto(url);
   try {
-    let pageProcessor = await getPageProcessorStrategy(url);
-    noteData = await pageProcessor({
+    let pageProcessor = await getPageProcessorStrategy(src);
+    if (pageProcessor.rewriteUrl) {
+      src = pageProcessor.rewriteUrl(src);
+      console.log(`rewritten as ${src}`);
+    }
+    await page.goto(src);
+    console.log('PAGE LOADED');
+    page.on('console', msg =>
+      console.log('---------------------PAGE LOG:', msg.text()),
+    );
+    noteData = await pageProcessor.fetchData({
       browser,
       page,
-      noteData
+      noteData,
     });
   } catch (e) {
-    console.log('There was an error');
+    console.log(`There was an error with ${src}`);
     console.log(e);
   }
 
   if (dataIsNotEmpty(noteData)) {
-    const saveTo = newNotePath(PATH_BOOSTNOTE);
-    fs.writeFileSync(
-      saveTo,
-      Mustache.render(noteTemplate, noteData),
-      'utf8'
-    );
+    const saveTo = newNotePath(noteRef);
+    fs.writeFileSync(saveTo, Mustache.render(noteTemplate, noteData), 'utf8');
     console.log(saveTo, noteData);
   }
 
