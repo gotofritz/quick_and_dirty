@@ -1,8 +1,7 @@
-const { consolidateTags, getDataFromPage } = require('./lib');
+const { getDataFromPage } = require('./lib');
 
 module.exports = {
   fetchData: async ({ page, noteData }) => {
-    const { tags } = noteData;
     let additionalData = await getDataFromPage(page, [
       { key: 'title', query: ['#main-title h1', 'h1'] },
       {
@@ -48,7 +47,6 @@ module.exports = {
     const updatedData = {
       ...noteData,
       ...additionalData,
-      tags: consolidateTags(tags),
     };
     return updatedData;
   },

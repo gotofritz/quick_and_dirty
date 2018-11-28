@@ -19,11 +19,10 @@ const getYtInitialData = page =>
 
 // the actual page manipulating function
 module.exports = {
+  consolidateTags: consolidateTags.bind(null, 'screencast'),
   fetchData: async ({ page, noteData }) => {
-    const { src, tags } = noteData;
+    const { src } = noteData;
     let additionalData = await getYtplayerData(page);
-
-    noteData.tags = consolidateTags(tags, 'screencast');
     noteData.title = additionalData.title;
     noteData.authors = additionalData.author;
     noteData.preamble = `<iframe width="560" height="315" src="${src.replace(

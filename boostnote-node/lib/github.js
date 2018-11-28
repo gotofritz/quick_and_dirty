@@ -1,4 +1,4 @@
-const { consolidateTags, getDataFromPage, pathinfo } = require('./lib');
+const { getDataFromPage, pathinfo } = require('./lib');
 //https://raw.githubusercontent.com/s0md3v/XSStrike/master/README.md
 
 // for content we use the raw content of the README.md
@@ -30,7 +30,7 @@ const getAuthorDetails = async (browser, src) => {
 
 module.exports = {
   fetchData: async ({ browser, page, noteData }) => {
-    const { src, tags } = noteData;
+    const { src } = noteData;
     let additionalData = await getDataFromPage(page, [
       // this is the paragraph of text at the top of a github page
       { key: 'preamble', query: '[itemprop=about]' },
@@ -45,7 +45,6 @@ module.exports = {
     const updatedData = {
       ...noteData,
       ...additionalData,
-      tags: consolidateTags(tags),
       authors: await getAuthorDetails(browser, src),
       content: await getContent(browser, src),
     };

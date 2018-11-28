@@ -15,6 +15,7 @@ const generateImagePath = pth => {
 };
 
 module.exports = {
+  consolidateTags: consolidateTags.bind(null, 'do.visual'),
   rewriteUrl: pth => {
     const parts = url
       .parse(pth)
@@ -27,9 +28,8 @@ module.exports = {
   fetchData: async ({ page, noteData }) => {
     const physicalImg = await getImage({
       imageUrl: generateImagePath(noteData.src),
-      noteRef: noteData.noteRef,
+      noteAddress: noteData.noteAddress,
     });
-    const { tags } = noteData;
     let additionalData = await getDataFromPage(page, [
       { key: 'title', query: '.pen-title-link' },
       {
@@ -55,7 +55,6 @@ module.exports = {
       ...noteData,
       ...additionalData,
       preamble: markdownImageFromPath(physicalImg),
-      tags: consolidateTags(tags, 'do.visual'),
     };
     return updatedData;
   },

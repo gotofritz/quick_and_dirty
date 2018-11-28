@@ -1,9 +1,4 @@
-const {
-  consolidateTags,
-  getDataFromPage,
-  getImage,
-  markdownImageFromPath,
-} = require('./lib');
+const { getDataFromPage, getImage, markdownImageFromPath } = require('./lib');
 
 const getPreambleData = page =>
   page.evaluate(() => {
@@ -28,7 +23,7 @@ module.exports = {
     const physicalImg = preambleData.img
       ? await getImage({
           imageUrl: preambleData.img,
-          noteRef: noteData.noteRef,
+          noteAddress: noteData.noteAddress,
         })
       : null;
     let preamble = '';
@@ -42,7 +37,6 @@ module.exports = {
       preamble += preambleData.txt;
     }
 
-    const { tags } = noteData;
     let additionalData = await getDataFromPage(page, [
       { key: 'title', query: '.top-matter a.title' },
       {
@@ -63,7 +57,6 @@ module.exports = {
       ...noteData,
       ...additionalData,
       preamble,
-      tags: consolidateTags(tags),
     };
     return updatedData;
   },

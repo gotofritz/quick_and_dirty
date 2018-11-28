@@ -20,13 +20,13 @@ module.exports.loadInstructions = ({ pth }) => {
 // create an image filename the way boostnote does it
 module.exports.imagePaths = (
   root,
-  noteRef,
+  noteAddress,
   imageFile = crypto.randomBytes(10).toString('hex') + '.png',
 ) => {
   // :storage/0e07f996-6728-48ad-9699-fa15934f92a1/d2bda7dc.png
   return {
-    physical: `${root}/attachments/${noteRef}/${imageFile}`,
-    source: `:storage/${noteRef}/${imageFile}`,
+    physical: `${root}/attachments/${noteAddress}/${imageFile}`,
+    source: `:storage/${noteAddress}/${imageFile}`,
   };
 };
 
@@ -39,16 +39,16 @@ module.exports.markdownImageFromPath = destPath => {
 };
 
 const downloadImgPath = ({
-  noteRef,
+  noteAddress,
   imageFileName = crypto.randomBytes(10).toString('hex') + '.png',
 }) => {
   imageFileName = imageFileName.replace(/\?.*$/, '');
-  return `${PATH_BOOSTNOTE}/attachments/${noteRef}/${imageFileName}`;
+  return `${PATH_BOOSTNOTE}/attachments/${noteAddress}/${imageFileName}`;
 };
 
-module.exports.getImage = ({ imageUrl, noteRef }) => {
+module.exports.getImage = ({ imageUrl, noteAddress }) => {
   const imageFileName = path.basename(imageUrl);
-  const destPath = downloadImgPath({ imageFileName, noteRef });
+  const destPath = downloadImgPath({ imageFileName, noteAddress });
   const dir = path.dirname(destPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir);
@@ -160,22 +160,28 @@ module.exports.pathinfo = pathinfo;
 
 // returns the function that will go and fetch page data
 module.exports.getPageProcessorStrategy = address => {
-  const { hostnameFragments: [strategy] } = pathinfo(address);
-  if (strategy in pageProcessorStrategies) {
-    return pageProcessorStrategies[strategy];
+  const DEFAULT_STRATEGY = 'generic';
+  // extracts 'youtube' from a youtube url, etc
+  let { hostnameFragments: [strategy] } = pathinfo(address);
+  if (!pageProcessorStrategies[strategy]) {
+    strategy = DEFAULT_STRATEGY;
   }
-  return pageProcessorStrategies.generic;
+  return {
+    rewriteUrl: x => x,
+    consolidateTags,
+    ...pageProcessorStrategies[strategy],
+  };
 };
 
-let fakeNewNoteRef = 0;
+let fakenewNoteAddress = 0;
 // generates a path for a newly created file
-module.exports.newNoteRef = () => {
+module.exports.newNoteAddress = () => {
   let filename;
   try {
     filename = fs
       .readFileSync('.debug', 'utf8')
-      .replace(/.$/, (fakeNewNoteRef + 1).toString(16));
-    fakeNewNoteRef += 1;
+      .replace(/.$/, (fakenewNoteAddress + 1).toString(16));
+    fakenewNoteAddress += 1;
   } catch (e) {}
   if (!filename) {
     filename = uuidv4();
@@ -190,12 +196,12 @@ module.exports.newNotePath = (filename = '') => {
 
 // takes an array of tags ['a', 'b'], allow you to add some hardocded ones, and formats them
 // in a boostnote friendly format
-module.exports.consolidateTags = (tags = [], ...extraTags) =>
-  tags
-    .concat(extraTags)
-    .filter(tag => tag)
+const consolidateTags = (...tags) =>
+  [].concat
+    .apply([], tags)
     .map(tag => `"${tag}"`)
     .toString();
+module.exports.consolidateTags = consolidateTags;
 
 // strategy object that returns an object ready to be injected in the Mustache template
 const pageProcessorStrategies = {

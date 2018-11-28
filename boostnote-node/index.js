@@ -7,7 +7,7 @@ const {
   getPageProcessorStrategy,
   loadInstructions,
   newNotePath,
-  newNoteRef,
+  newNoteAddress,
 } = require('./lib/lib');
 
 const {
@@ -17,7 +17,7 @@ const {
 } = require('./lib/const');
 
 let browser;
-let page;
+let notes = {};
 
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
 const instructionsQueue = loadInstructions({ pth: PATH_URLS_FILE });
@@ -26,25 +26,27 @@ processFile(instructionsQueue);
 async function processFile(queue) {
   if (!browser) {
     browser = await puppeteer.launch();
-    page = await browser.newPage();
   }
-  let { src, tags } = queue.shift();
-  console.log(`Trying ${src} ....`);
-  let noteRef = newNoteRef();
+  const page = await browser.newPage();
+
+  let instruction = queue.shift();
+  let { src, tags } = instruction;
+  console.log(`Source: ${src} ....`);
+
+  let pageProcessor = getPageProcessorStrategy(src);
+  src = pageProcessor.rewriteUrl(src);
+  console.log(`Rewritten as: ${src}`);
+
+  let noteAddress = newNoteAddress();
   let noteData = {
     folder: FOLDER_KEY,
     src,
-    tags,
+    tags: pageProcessor.consolidateTags(tags),
     updated: new Date().toISOString(),
-    noteRef,
+    noteAddress,
   };
 
   try {
-    let pageProcessor = await getPageProcessorStrategy(src);
-    if (pageProcessor.rewriteUrl) {
-      src = pageProcessor.rewriteUrl(src);
-      console.log(`rewritten as ${src}`);
-    }
     await page.goto(src);
     console.log('PAGE LOADED');
     page.on('console', msg =>
@@ -61,7 +63,7 @@ async function processFile(queue) {
   }
 
   if (dataIsNotEmpty(noteData)) {
-    const saveTo = newNotePath(noteRef);
+    const saveTo = newNotePath(noteAddress);
     fs.writeFileSync(saveTo, Mustache.render(noteTemplate, noteData), 'utf8');
     console.log(saveTo, noteData);
   }
