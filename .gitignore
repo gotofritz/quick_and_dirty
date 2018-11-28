@@ -14,3 +14,4 @@ yarn-error.log*
 *.config.yml
 *.bak
 .tmp
+client_secret.json

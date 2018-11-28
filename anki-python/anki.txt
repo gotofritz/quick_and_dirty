@@ -1,7 +1,0 @@
-Differences between <code>assert</code> and <code>require</code> in Solidity?	They both cause an error, each with their opcode	But the <code>require</code> opcode has been mapped to <code>revert</code> since 4.10. That means that revert will be called at the end	That means that <code>require</code> will return a value...	...and refund any excess GAS. <code>assert</code> will use up all the GAS					geeky blockchain
-revert() results in state-reverting exception. True or False?	True								geeky blockchain
-What are the main use cases for events in Solidity?	smart contract return values for the user interface	asynchronous triggers with data	a cheaper form of storage						geeky blockchain
-What are logs in Ethereum?	A form of storage that costs significantly less gas than contract storage								geeky blockchain
-How much do logs and contract storage cost?	Logs = 8 gas / byte	Contract storage = 20,000 gas per 32 bytes							geeky blockchain
-How would you use Logs / Events in Ethereum?	For example for storing historical data; because it's cheaper and the smart contract doesn't need it, it's just a nice-to-have for the UI								geeky blockchain
-When are events emitted in Ethereum?	When the block including the transaction which calls the function that triggers the event is mined								geeky blockchain
