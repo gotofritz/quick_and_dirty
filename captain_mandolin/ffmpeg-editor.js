@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
-const { exec, spawnSync, spawn } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const program = require('commander');
 
 const {
@@ -19,12 +19,14 @@ const {
   log,
   defaultConfigPath,
   normalisePath,
+  mustacheLite,
 } = require('./lib/shared');
 const {
   TYPE_JOIN,
   TYPE_SPLIT,
   TYPE_CONVERT,
   TYPE_UNKNOWN,
+  TYPE_EXTRACT,
   DEFAULT_VIDEO_EXT,
 } = require('./lib/types');
 const videoProcessor = require('./lib/video-processor');
@@ -32,7 +34,12 @@ const videoProcessor = require('./lib/video-processor');
 const DATETIME_FORMAT = 'hh:mm:ss.SSS';
 const DEFAULT_CONFIG = defaultConfigPath();
 const TEMP_DIR = path.join(__dirname, '.tmp');
-const REGISTERED_CMDS = Object.freeze([TYPE_JOIN, TYPE_SPLIT, TYPE_CONVERT]);
+const REGISTERED_CMDS = Object.freeze([
+  TYPE_JOIN,
+  TYPE_SPLIT,
+  TYPE_CONVERT,
+  TYPE_EXTRACT,
+]);
 const asMilliseconds = obj => LuxonDuration.fromObject(obj).as('milliseconds');
 
 program
@@ -84,7 +91,12 @@ if (hasEnoughDataToWorkWith(config, userData)) {
     return accumulator;
   }, []);
   log(program.verbose, 'cliCommands', cliCommands);
-  processQueue(cliCommands);
+
+  if (program.dryRun) {
+    log(!program.quiet, cliCommands);
+  } else {
+    processQueue(cliCommands);
+  }
 
   // process.exit();
   // const { commands } = instructions.reduce(
@@ -131,7 +143,7 @@ function rejectUnknownCmd({ cmd = TYPE_UNKNOWN, src = '[none]' }) {
 }
 
 function hasEnoughDataToWorkWith(data = {}, yamlData) {
-  return data.srcRoot && data.dest && Boolean(yamlData.instructions);
+  return Boolean(yamlData.instructions);
 }
 
 // ensure the instruction (which comes straight from an user editable YAML file)
@@ -139,7 +151,14 @@ function hasEnoughDataToWorkWith(data = {}, yamlData) {
 function normaliseInstruction(instruction, config) {
   let normalisedInstructions = [];
   // some normalisations are useful for all commands
-  instruction.dest = instruction.dest || config.dest;
+  if (instruction.dest) {
+    if (!path.isAbsolute(instruction.dest)) {
+      instruction.dest = path.join(config.dest, instruction.dest);
+    }
+  } else {
+    instruction.dest = config.dest;
+  }
+  mkdirp(instruction.dest);
   instruction.src = normaliseSrcToArray(instruction, config);
 
   switch (instruction.cmd) {
@@ -156,16 +175,15 @@ function normaliseInstruction(instruction, config) {
       );
       break;
 
+    case TYPE_EXTRACT:
+      normalisedInstructions = createOneInstructionForEachSrc(instruction);
+      break;
+
     case TYPE_JOIN:
       normalisedInstructions = normaliseJoinInstruction(instruction);
       break;
   }
   return normalisedInstructions;
-  // normaliseOutputsInPlace({
-  //   outputArray: instruction.output,
-  //   dest: instruction.dest || config.dest,
-  //   src: instruction.src,
-  // });
 }
 
 function generateDestFromSrc(instruction) {
@@ -222,29 +240,12 @@ function createOneInstructionForEachSrc(instruction) {
   }));
 }
 
-function normaliseInstructionOutput({ output, dest, src }) {
-  output.forEach((outputInstruction, i) => {
-    outputInstruction.src = outputInstruction.src || src;
-    // - if no 'ref' and no 'filename', assign a digit to 'ref'
-    // - 'ref' must always be a string
-    if (!outputInstruction.filename && !outputInstruction.ref) {
-      outputInstruction.ref = i;
-    }
-    if ('ref' in outputInstruction) {
-      outputInstruction.ref = String(outputInstruction.ref);
-    }
-    // ensure each instruction has a dest
-    if (!outputInstruction.dest) {
-      outputInstruction.dest = dest;
-    }
-  });
-}
-
 function generateCommand(instruction) {
   const strategy = {
     [TYPE_JOIN]: generateJoinInstructions,
     [TYPE_SPLIT]: generateSplitCommand,
     [TYPE_CONVERT]: generateConvertCommand,
+    [TYPE_EXTRACT]: generateExtractCommand,
     [TYPE_UNKNOWN]: () => logError(`UNKNOWN INSTRUCTION TYPE`),
   };
   return strategy[instruction.cmd](instruction);
@@ -257,10 +258,41 @@ function generateConvertCommand({ src, dest } = {}) {
   });
 }
 
+function generateExtractCommand({ src, dest, filename, sections = [] }) {
+  log(program.verbose, 'generateExtractCommand / src', src);
+  log(program.verbose, 'generateExtractCommand / filename', filename);
+  log(program.verbose, 'generateExtractCommand / dest', dest);
+
+  let ongoingStart = 0;
+  let padding = getDigitsNeeded(sections);
+  const basename = path.basename(src, path.extname(src));
+  const commands = sections.map((current, i) => {
+    current.src = src;
+    current.start = current.start
+      ? asMilliseconds(current.start)
+      : ongoingStart;
+    if (current.end) {
+      ongoingStart = asMilliseconds(current.end);
+      current.duration = ongoingStart - current.start;
+    }
+    current.filename = current.filename || filename;
+    current.dest = path.join(
+      dest,
+      mustacheLite(current.filename, { basename, i: i + 1 }, padding) +
+        DEFAULT_VIDEO_EXT,
+    );
+    if (filename && filename.includes('/')) {
+      mkdirp.sync(path.dirname(current.dest));
+    }
+    return videoProcessor.split(current);
+  });
+  return commands;
+}
+
 function generateSplitCommand({
   src,
   dest,
-  sections: { backtrack, duration, filename = '{basename} # {i}' },
+  sections: { backtrack, duration, filename = '{basename} # {i}', segments },
 }) {
   log(program.verbose, 'generateSplitCommand / src', src);
   log(program.verbose, 'generateSplitCommand / duration', duration);
@@ -270,23 +302,36 @@ function generateSplitCommand({
   const backtrackDuration = backtrack ? asMilliseconds(backtrack) : 0;
   const wholeVideoDuration = getVideoDuration(src) + backtrackDuration;
   const basename = path.basename(src, path.extname(src));
-  let maxSegmentDuration = asMilliseconds(duration) + backtrackDuration;
-  let numberOfSegments = Math.ceil(wholeVideoDuration / maxSegmentDuration);
-  let actualSegmentDuration = wholeVideoDuration / numberOfSegments;
+  let numberOfSegments;
+  let actualSegmentDuration;
+
+  if (segments) {
+    numberOfSegments = segments;
+    actualSegmentDuration =
+      backtrackDuration + wholeVideoDuration / numberOfSegments;
+  } else if (duration) {
+    let maxSegmentDuration = asMilliseconds(duration) + backtrackDuration;
+    numberOfSegments = Math.ceil(wholeVideoDuration / maxSegmentDuration);
+    actualSegmentDuration = wholeVideoDuration / numberOfSegments;
+  } else {
+    logError(`Neither duration no segments given for ${src}`);
+  }
 
   let ongoingSegmentStart = 0;
   let commands = [];
   let padding = getDigitsNeeded(numberOfSegments);
   for (let i = 0; i < numberOfSegments; i++) {
+    const fileDest = path.join(
+      dest,
+      mustacheLite(filename, { basename, i: i + 1 }, padding) +
+        DEFAULT_VIDEO_EXT,
+    );
+    if (filename.includes('/')) {
+      mkdirp.sync(path.dirname(fileDest));
+    }
     const videoProcessorArgs = {
       src,
-      dest: path.join(
-        dest,
-        filename
-          .replace(/\{basename\}/, basename)
-          .replace(/\{i\}/, String(i + 1).padStart(padding, '0')) +
-          DEFAULT_VIDEO_EXT,
-      ),
+      dest: fileDest,
       start: ongoingSegmentStart,
     };
     if (i < numberOfSegments - 1) {
@@ -370,9 +415,10 @@ function getOutputsFromSections(instruction) {
     thisEnd = previousEnd.plus(sectionDuration);
     const outputInstruction = {
       src,
-      [filenameOrPathKey]: filenameOrPathValue.replace(
-        /\{i\}/,
-        String(index).padStart(indexDigits, '0'),
+      [filenameOrPathKey]: mustacheLite(
+        filenameOrPathValue,
+        { basename, i: indexDigits },
+        indexDigits,
       ),
     };
     if (index > 1) {
@@ -580,7 +626,7 @@ async function processQueue(queue) {
   const command = queue.shift();
   log(!program.quiet, command);
   const child = spawn(command.cmd, command.args || []);
-  child.on('exit', code => {
+  child.on('exit', () => {
     processQueue(queue);
   });
   if (program.verbose) {
@@ -588,7 +634,21 @@ async function processQueue(queue) {
       console.log(`Stdout from the child: ${data}`);
     }
   }
-  for await (const data of child.stderr) {
-    log(true, `postprocessing Error: ${data}`);
+  for await (const errorBuffer of child.stderr) {
+    if (isFatalError(errorBuffer)) {
+      log(
+        !program.quiet,
+        `----->>>>>>>>>> Fatal postprocessing Error: ${errorBuffer}`,
+      );
+      processQueue(queue);
+    } else {
+      log(program.verbose, `----- postprocessing Error: ${errorBuffer}`);
+    }
   }
+}
+
+// Handbrake is very noisy; not all errors are fatal. This function tries to
+// work out which one is
+function isFatalError(errorBuffer) {
+  return errorBuffer.toString().match(/work result = 0/);
 }

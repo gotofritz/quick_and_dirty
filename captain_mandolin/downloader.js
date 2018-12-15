@@ -6,9 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
-const spawn = require('child_process').spawn;
 const program = require('commander');
-const ffmpeg = require('./lib/video-processor');
+const yaml = require('js-yaml');
 
 const {
   defaultConfigPath,
@@ -22,6 +21,10 @@ const DEFAULT_CONFIG = defaultConfigPath();
 const PREPEND_SEPARATOR = ' ';
 const MAX_ATTEMPTS = 3;
 const TAB = '  ';
+const PATH_POSTPROCESS = path.join(
+  __dirname,
+  `downloader-postprocess-${Date.now()}.yml`,
+);
 
 program
   .version('0.0.1')
@@ -133,36 +136,18 @@ function processQueue(queue, postQueue) {
       PREPEND_SEPARATOR,
       infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
     ].join('');
-    if (shouldBeConverted(basename, instruction.postprocess)) {
-      postprocessing.push({
-        cmd: 'HandBrakeCLI',
-        args: [
-          '-Z',
-          'Fast 1080p30',
-          '-i',
-          `${dest}/${basename}`,
-          '-o',
-          `${dest}/${basename.replace(/\.[^.]{2,5}$/, '.mp4')}`,
-        ],
-      });
-      postprocessing.push({ cmd: 'rm', args: [`${dest}/${basename}`] });
-    }
-    postprocessing.push(
-      ...instruction.postprocess.reduce(
-        (postprocessAccumulator, postCurrent) => {
-          const postprocessInstructions = postprocessStrategy(postCurrent, {
-            basename,
-            dest,
-          });
-          return postprocessAccumulator.concat(postprocessInstructions, {
-            cmd: 'rm',
-            args: [`${dest}/${basename}`],
-          });
-        },
-        [],
-      ),
-    );
     filename = `${dest}/${basename}`;
+
+    let cmd = getPostprocessInstruction(basename, instruction.postprocess);
+    if (cmd) {
+      console.log(`FILENAME: [${filename}]`);
+      postprocessing.push({
+        src: filename,
+        dest: path.join(config.postprocess, path.basename(dest)),
+        cmd,
+      });
+    }
+
     log(
       !program.quiet,
       `filename: ${filename}
@@ -278,28 +263,25 @@ function getUrl({ service, code, type }) {
     : '';
 }
 
-async function postprocessQueue(queue) {
+function postprocessQueue(queue) {
   log(program.verbose, 'postprocessQueue:', queue);
+
   // stop recursing when finished
   if (queue.length === 0) {
-    log(!program.quiet, 'DONE');
+    log(!program.quiet, 'No postprocessing required');
     return;
   }
 
-  const command = queue.shift();
-  log(!program.quiet, command);
-  const child = spawn(command.cmd, command.args || []);
-  child.on('exit', code => {
-    postprocessQueue(queue);
-  });
-  if (program.verbose) {
-    for await (const data of child.stdout) {
-      console.log(`Stdout from the child: ${data}`);
-    }
-  }
-  for await (const data of child.stderr) {
-    log(true, `postprocessing Error: ${data}`);
-  }
+  const dataToDump = {
+    _config: {},
+    instructions: queue,
+  };
+  fs.writeFileSync(
+    PATH_POSTPROCESS,
+    yaml.dump(dataToDump, { sortKeys: true, lineWidth: 220 }),
+    'utf8',
+  );
+  log(!program.quiet, 'generated postprocess file', PATH_POSTPROCESS);
 }
 
 /**
@@ -334,7 +316,7 @@ function asYoutubeInstructions(
     codes = Array.of(codes);
   }
 
-  return codes.map((code, i) => {
+  return codes.filter(code => code).map((code, i) => {
     const isClip = isYoutubeVideo(code);
     return {
       code,
@@ -365,30 +347,9 @@ function isYoutubeVideo(code = '') {
 function normaliseInstruction(instruction = {}) {
   instruction.ordinal = instruction.ordinal || 0;
   instruction.attempts = instruction.attempts || 0;
-  instruction.postprocess = instruction.postprocess
-    ? [].concat(instruction.postprocess)
-    : [];
   return instruction;
 }
 
-function shouldBeConverted(basename, postprocess) {
-  return postprocess.length === 0 && !/\.mp4$/.test(basename);
-}
-
-function postprocessStrategy(ref, { dest, basename }) {
-  let postprocessInstructions = [];
-  const strategies = {
-    mp3: ({ dest, basename }) =>
-      ffmpeg.mp3(
-        {
-          src: `${dest}/${basename}`,
-          dest: `${dest}/${basename.replace(/\.[^.]{3,4}$/, '.mp3')}`,
-        },
-        { as: 'args' },
-      ),
-  };
-  if (ref in strategies) {
-    postprocessInstructions = strategies[ref]({ dest, basename });
-  }
-  return postprocessInstructions;
+function getPostprocessInstruction(basename, postprocess) {
+  return postprocess || (/\.mp4$/.test(basename) ? null : 'convert');
 }

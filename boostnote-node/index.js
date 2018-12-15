@@ -30,7 +30,7 @@ async function processFile(queue) {
   const page = await browser.newPage();
 
   let instruction = queue.shift();
-  let { src, tags } = instruction;
+  let { src, tags = [] } = instruction;
   console.log(`Source: ${src} ....`);
 
   let pageProcessor = getPageProcessorStrategy(src);

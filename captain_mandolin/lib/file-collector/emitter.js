@@ -1,6 +1,9 @@
 const EventEmitter = require('events');
 
-const { EVENT_FILELIST_WAS_GENERATED } = require('../types');
+const {
+  EVENT_FILELIST_WAS_GENERATED,
+  EVENT_POTENTIAL_FILES_WERE_FOUND,
+} = require('../types');
 
 /**
  * FileCollectorEmitter
@@ -27,6 +30,22 @@ class FileCollectorEmitter extends EventEmitter {
     // all plugins will respons to this, but in order, no concurrency issues.
     // They will also modify instruction and filesToAdd
     this.emit(EVENT_FILELIST_WAS_GENERATED, {
+      instruction,
+      allFiles,
+      filesToAdd,
+    });
+    // both will have been modified by the plugins
+    return { instruction, filesToAdd };
+  }
+
+  potentialFilesWereFound({
+    instruction = {},
+    allFiles = [],
+    filesToAdd = [],
+  } = {}) {
+    // all plugins will respons to this, but in order, no concurrency issues.
+    // They will also modify instruction and filesToAdd
+    this.emit(EVENT_POTENTIAL_FILES_WERE_FOUND, {
       instruction,
       allFiles,
       filesToAdd,

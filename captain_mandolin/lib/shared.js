@@ -19,7 +19,7 @@ module.exports.defaultConfigPath = (pth = module.parent.filename) =>
 // loads YAML or exits program
 module.exports.getConfigOrDie = pth => {
   if (!path.isAbsolute(pth)) {
-    pth = path.join(__dirname, pth);
+    pth = path.join(process.cwd(), pth);
   }
   try {
     return yaml.safeLoad(fs.readFileSync(pth, 'utf8'));
@@ -65,3 +65,8 @@ module.exports.writeYaml = (pth, settings) => {
   fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
   return settings;
 };
+
+module.exports.mustacheLite = (template, data, padding = 2) =>
+  template
+    .replace(/\{basename\}/g, data.basename)
+    .replace(/\{i\}/g, String(data.i).padStart(padding, '0'));

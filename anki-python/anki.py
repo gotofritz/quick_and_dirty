@@ -4,8 +4,10 @@ import markdown
 import re
 
 md = markdown.Markdown(output_format='html5')
-md_start = len('<p>')
-md_end = len('</p>')
+md_start_p = len('<p>')
+md_end_p = len('</p>')
+md_start_pre = len('<pre>')
+md_end_pre = len('</pre>')
 SEPARATOR = 2
 DEFAULT_TAGS = 'geeky '
 
@@ -50,10 +52,13 @@ with  open(args.src) as read_from:
       newlines += 1
     else:
       line = line.strip()
-      if not re.match('<pre>', line):
+      if re.match('<pre>', line):
+        line = md.convert(line)[md_start_pre:-md_end_pre]
+        line = "<pre>" + line.replace("<", "&lt;").replace(">", "&gt;").replace("___", "<br>") + "</pre>"
+      else:
         # sadly markdown wraps everything in <p>...</p>
         # we take the substring inside those
-        line = md.convert(line)[md_start:-md_end]
+        line = md.convert(line)[md_start_p:-md_end_p]
       new_card[card_pointer] = line
       card_pointer += 1
       newlines = 0

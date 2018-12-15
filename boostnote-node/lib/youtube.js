@@ -1,3 +1,5 @@
+const queryString = require('query-string');
+const url = require('url');
 const { consolidateTags } = require('./lib');
 
 // one section of the YT data
@@ -20,6 +22,13 @@ const getYtInitialData = page =>
 // the actual page manipulating function
 module.exports = {
   consolidateTags: consolidateTags.bind(null, 'screencast'),
+
+  rewriteUrl: src => {
+    const u = url.parse(src);
+    const qs = queryString.parse(u.search);
+    return `${u.protocol}//${u.host}${u.pathname}?v=${qs.v}`;
+  },
+
   fetchData: async ({ page, noteData }) => {
     const { src } = noteData;
     let additionalData = await getYtplayerData(page);

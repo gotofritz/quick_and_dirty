@@ -90,6 +90,7 @@ if (hasEnoughDataToWorkWith(config)) {
   } else {
     // placeholder awaiting further work
     require('./lib/file-collector/rules/random')(fileCollectorEmitter);
+    require('./lib/file-collector/rules/oneLevelWide')(fileCollectorEmitter);
 
     const filesToCopy = getListOfFilesToCopy(userData.instructions, config);
     if (program.dryRun) {
@@ -175,6 +176,15 @@ function getListOfFilesToCopy(instructions, config = {}) {
         CaptnM.logError(`No files found with ${globPath}`);
         return accumulator;
       }
+
+      ({
+        instruction,
+        filesToAdd,
+      } = fileCollectorEmitter.potentialFilesWereFound({
+        instruction,
+        allFiles,
+        filesToAdd,
+      }));
 
       // ignore = regexp for file(s) not to be included in search
       if (instruction.ignore) {
