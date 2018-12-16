@@ -67,6 +67,7 @@ async function processFile(queue) {
     fs.writeFileSync(saveTo, Mustache.render(noteTemplate, noteData), 'utf8');
     delete noteData.content;
     console.log(saveTo, noteData);
+    console.log('-'.repeat(62));
   }
 
   if (queue.length === 0) {
