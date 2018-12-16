@@ -49,9 +49,9 @@ async function processFile(queue) {
   try {
     await page.goto(src);
     console.log('PAGE LOADED');
-    page.on('console', msg =>
-      console.log('---------------------PAGE LOG:', msg.text()),
-    );
+    // page.on('console', msg =>
+    //   console.log('---------------------PAGE LOG:', msg.text()),
+    // );
     noteData = await pageProcessor.fetchData({
       browser,
       page,
@@ -65,6 +65,7 @@ async function processFile(queue) {
   if (dataIsNotEmpty(noteData)) {
     const saveTo = newNotePath(noteAddress);
     fs.writeFileSync(saveTo, Mustache.render(noteTemplate, noteData), 'utf8');
+    delete noteData.content;
     console.log(saveTo, noteData);
   }
 
