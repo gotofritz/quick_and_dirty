@@ -32,6 +32,14 @@ module.exports = {
   fetchData: async ({ browser, page, noteData }) => {
     const { src } = noteData;
     let additionalData = await getDataFromPage(page, [
+      // the title is generally too long
+      {
+        key: 'title',
+        query: 'h1 [itemprop=name] a',
+        processFn: function(el) {
+          return el.getAttribute('href').substring(1);
+        },
+      },
       // this is the paragraph of text at the top of a github page
       { key: 'preamble', query: '[itemprop=about]' },
       // we look for the link to the README.md, there is usually a date next to it

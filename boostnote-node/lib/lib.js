@@ -99,7 +99,12 @@ module.exports.getDataFromPage = (page, queries = []) => {
     // adds processFn to those queries that don't have one
     .map(query => {
       query.processFn = query.processFn
-        ? query.processFn.toString()
+        ? // ugly hack to extract the body of a function to them pass it on
+          // Because there is no easy way to pass functions to pageEValuate
+          query.processFn
+            .toString()
+            .replace(/^[^\{]+\{(.+)\}\s*$/s, '$1')
+            .trim()
         : query.attr ? getAttr(query.attr) : getTextContent;
       if (query.query) {
         query.query = [].concat(query.query);
