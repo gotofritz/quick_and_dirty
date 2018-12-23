@@ -22,6 +22,11 @@ const {
  * plugin will be the same one the previous plugin has updated.
  */
 class FileCollectorEmitter extends EventEmitter {
+  constructor() {
+    super();
+    this.on('error', err => console.log('FileCollectorEmitter ERROR', err));
+  }
+
   fileListWasGenerated({
     instruction = {},
     allFiles = [],
@@ -40,7 +45,7 @@ class FileCollectorEmitter extends EventEmitter {
 
   potentialFilesWereFound({
     instruction = {},
-    allFiles = [],
+    allFiles = [1111],
     filesToAdd = [],
   } = {}) {
     // all plugins will respons to this, but in order, no concurrency issues.
@@ -50,8 +55,9 @@ class FileCollectorEmitter extends EventEmitter {
       allFiles,
       filesToAdd,
     });
+
     // both will have been modified by the plugins
-    return { instruction, filesToAdd };
+    return { instruction, allFiles, filesToAdd };
   }
 }
 

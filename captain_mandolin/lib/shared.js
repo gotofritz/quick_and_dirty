@@ -70,3 +70,11 @@ module.exports.mustacheLite = (template, data, padding = 2) =>
   template
     .replace(/\{basename\}/g, data.basename)
     .replace(/\{i\}/g, String(data.i).padStart(padding, '0'));
+
+module.exports.saveToFile = (name, content) => {
+  require('fs').writeFileSync(
+    path.join(process.cwd(), name),
+    JSON.stringify(content, null, 2),
+    'utf8',
+  );
+};

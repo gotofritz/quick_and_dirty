@@ -96,7 +96,7 @@ if (hasEnoughDataToWorkWith(config)) {
     if (program.dryRun) {
       CaptnM.log(!program.quiet, filesToCopy);
       updateUserDataInPlace(userData.instructions, filesToCopy);
-      CaptnM.log(!program.quiet, userData);
+      CaptnM.log(program.verbose, userData);
     } else {
       const copiedFiles = copyFiles(filesToCopy, config);
       updateUserDataInPlace(userData.instructions, copiedFiles);
@@ -179,6 +179,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
 
       ({
         instruction,
+        allFiles,
         filesToAdd,
       } = fileCollectorEmitter.potentialFilesWereFound({
         instruction,

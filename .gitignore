@@ -15,3 +15,4 @@ yarn-error.log*
 *.bak
 .tmp
 client_secret.json
+log-*.txt
