@@ -13,7 +13,9 @@ module.exports.loadInstructions = ({ pth }) => {
   const instructions = YAML.parse(file);
   return instructions.map(instruction => ({
     ...instruction,
-    tags: (instruction.tags || '').split(','),
+    tags: Array.isArray(instruction.tags)
+      ? instruction.tags
+      : (instruction.tags || '').split(','),
   }));
 };
 
