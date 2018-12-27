@@ -11,12 +11,17 @@ const { PATH_BOOSTNOTE } = require('./const');
 module.exports.loadInstructions = ({ pth }) => {
   const file = fs.readFileSync(pth, 'utf8');
   const instructions = YAML.parse(file);
-  return instructions.map(instruction => ({
-    ...instruction,
-    tags: Array.isArray(instruction.tags)
-      ? instruction.tags
-      : (instruction.tags || '').split(','),
-  }));
+  return instructions.reduce((accumulator, instruction) => {
+    const { src, tags, ...rest } = instruction;
+    const srcs = [].concat(src);
+    return accumulator.concat(
+      srcs.map(s => ({
+        src: s,
+        tags,
+        ...rest,
+      })),
+    );
+  }, []);
 };
 
 // create an image filename the way boostnote does it

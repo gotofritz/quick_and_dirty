@@ -17,7 +17,6 @@ const {
 } = require('./lib/const');
 
 let browser;
-let notes = {};
 
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
 const instructionsQueue = loadInstructions({ pth: PATH_URLS_FILE });
