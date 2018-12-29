@@ -27,7 +27,9 @@ const {
   TYPE_CONVERT,
   TYPE_UNKNOWN,
   TYPE_EXTRACT,
+  TYPE_MP3,
   DEFAULT_VIDEO_EXT,
+  DEFAULT_AUDIO_EXT,
 } = require('./lib/types');
 const videoProcessor = require('./lib/video-processor');
 
@@ -38,6 +40,7 @@ const REGISTERED_CMDS = Object.freeze([
   TYPE_JOIN,
   TYPE_SPLIT,
   TYPE_CONVERT,
+  TYPE_MP3,
   TYPE_EXTRACT,
 ]);
 const asMilliseconds = obj => LuxonDuration.fromObject(obj).as('milliseconds');
@@ -97,39 +100,6 @@ if (hasEnoughDataToWorkWith(config, userData)) {
   } else {
     processQueue(cliCommands);
   }
-
-  // process.exit();
-  // const { commands } = instructions.reduce(
-  //   (accumulator, instruction, i) => {
-  //     const processInputInstructions = getProcessingInputInstructions(
-  //       instruction,
-  //     );
-  //     const { lastSrc, tempVideos, commands } = processInputInstructions({
-  //       instruction: instruction,
-  //       tempVideos: accumulator.tempVideos,
-  //       i,
-  //       lastSrc: accumulator.lastSrc,
-  //     });
-  //     accumulator.commands = accumulator.commands.concat(commands);
-  //     accumulator.tempVideos = tempVideos;
-  //     accumulator.lastSrc = lastSrc;
-  //     return accumulator;
-  //   },
-  //   {
-  //     // we store the last step because a join may want to join them
-  //     tempVideos: new Map(),
-  //     commands: [],
-  //     lastSrc: '',
-  //   },
-  // );
-
-  // if (program.dryRun) {
-  //   log(!program.quiet, commands);
-  // } else {
-  //   mkdirp(TEMP_DIR);
-  //   rimraf.sync(path.join(TEMP_DIR, '*'));
-  //   processQueue(commands);
-  // }
 }
 
 function rejectUnknownCmd({ cmd = TYPE_UNKNOWN, src = '[none]' }) {
@@ -171,7 +141,14 @@ function normaliseInstruction(instruction, config) {
 
     case TYPE_CONVERT:
       normalisedInstructions = createOneInstructionForEachSrc(instruction).map(
-        generateDestFromSrc,
+        individualInstruction => generateDestFromSrc(individualInstruction),
+      );
+      break;
+
+    case TYPE_MP3:
+      normalisedInstructions = createOneInstructionForEachSrc(instruction).map(
+        individualInstruction =>
+          generateDestFromSrc(individualInstruction, DEFAULT_AUDIO_EXT),
       );
       break;
 
@@ -186,11 +163,10 @@ function normaliseInstruction(instruction, config) {
   return normalisedInstructions;
 }
 
-function generateDestFromSrc(instruction) {
+function generateDestFromSrc(instruction, ext = DEFAULT_VIDEO_EXT) {
   instruction.dest = path.join(
     instruction.dest,
-    path.basename(instruction.src, path.extname(instruction.src)) +
-      DEFAULT_VIDEO_EXT,
+    path.basename(instruction.src, path.extname(instruction.src)) + ext,
   );
   return instruction;
 }
@@ -245,10 +221,18 @@ function generateCommand(instruction) {
     [TYPE_JOIN]: generateJoinInstructions,
     [TYPE_SPLIT]: generateSplitCommand,
     [TYPE_CONVERT]: generateConvertCommand,
+    [TYPE_MP3]: generateMp3Command,
     [TYPE_EXTRACT]: generateExtractCommand,
     [TYPE_UNKNOWN]: () => logError(`UNKNOWN INSTRUCTION TYPE`),
   };
   return strategy[instruction.cmd](instruction);
+}
+
+function generateMp3Command({ src, dest } = {}) {
+  return videoProcessor.mp3({
+    src,
+    dest,
+  });
 }
 
 function generateConvertCommand({ src, dest } = {}) {
