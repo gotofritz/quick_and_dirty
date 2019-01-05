@@ -1,5 +1,5 @@
 const uuidv4 = require('uuid/v4');
-const url = require('url');
+const urlParser = require('url');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -162,8 +162,8 @@ module.exports.getDataFromPage = (page, queries = []) => {
 
 // extends the built-in url by removing www. from host and splitting
 // hostname into section
-const pathinfo = address => {
-  const info = url.parse(address);
+const pathinfo = url => {
+  const info = urlParser.parse(url);
   info.hostname = info.hostname.replace(/^www\./, '').toLocaleLowerCase();
   info.hostnameFragments = info.hostname.split('.');
   return info;
@@ -206,14 +206,36 @@ module.exports.newNotePath = (filename = '') => {
   return `${PATH_BOOSTNOTE}/notes/${filename}.cson`;
 };
 
+module.exports.cleanseUrl = url => {
+  if (url.substr(-1) === '/') {
+    url = url.replace(/\/$/, '');
+  }
+  return url;
+};
+
 // takes an array of tags ['a', 'b'], allow you to add some hardocded ones, and formats them
 // in a boostnote friendly format
 const consolidateTags = (...tags) =>
-  [].concat
-    .apply([], tags)
+  tags
+    // make sure comma separate strings are turned into arrays
+    .reduce((accumulator, current) => {
+      if (Array.isArray(current)) {
+        return accumulator.concat(current);
+      }
+      if (current) {
+        return accumulator.concat(current.split(/\s*,\s*/));
+      }
+      return accumulator;
+    }, [])
     .map(tag => `"${tag}"`)
     .toString();
 module.exports.consolidateTags = consolidateTags;
+
+module.exports.cleanPageContent = (contentString = '') =>
+  contentString
+    .replace(/\n\s+\n/g, '')
+    .replace(/\n\{3,}/g, '\n\n')
+    .trim();
 
 // strategy object that returns an object ready to be injected in the Mustache template
 const pageProcessorStrategies = {

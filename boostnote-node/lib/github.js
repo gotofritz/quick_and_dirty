@@ -1,4 +1,6 @@
 const { getDataFromPage, pathinfo } = require('./lib');
+const { log } = require('./utils');
+
 //https://raw.githubusercontent.com/s0md3v/XSStrike/master/README.md
 
 // for content we use the raw content of the README.md
@@ -10,8 +12,22 @@ const getContent = async (browser, src) => {
     .join('/');
   let readmeUrl = `https://raw.githubusercontent.com/${fragment}/master/README.md`;
   const page = await browser.newPage();
-  await page.goto(readmeUrl);
-  return await page.$eval('body > pre', el => el.textContent);
+  let content = '';
+  try {
+    let response = await page.goto(readmeUrl);
+    if (response.status() < 300) {
+      content = await page.$eval('body > pre', el => el.textContent);
+    } else {
+      readmeUrl = readmeUrl.replace(/README/, 'readme');
+      response = await page.goto(readmeUrl);
+      if (response.status() < 300) {
+        content = await page.$eval('body > pre', el => el.textContent);
+      }
+    }
+  } catch (e) {
+    log(true, 'ERROR', e);
+  }
+  return content || '';
 };
 
 // we load the author's page to get their full name
@@ -45,7 +61,7 @@ module.exports = {
       // we look for the link to the README.md, there is usually a date next to it
       {
         key: 'created',
-        query: 'a[title="README.md"]',
+        query: 'a[title="README.md" i]',
         processFn:
           'return el.parentNode.parentNode.parentNode.querySelector(".age [datetime]").getAttribute("datetime")',
       },
