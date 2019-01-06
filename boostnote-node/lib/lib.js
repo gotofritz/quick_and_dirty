@@ -6,17 +6,24 @@ const crypto = require('crypto');
 const request = require('request');
 const YAML = require('yaml');
 
-const { PATH_BOOSTNOTE } = require('./const');
+const { PATH_BOOSTNOTE, FOLDER_KEY } = require('./const');
+const Instruction = require('./Instruction');
+const { CMD_CREATE, CMD_FETCH_FROM_PAGE } = require('./commands');
 
 module.exports.loadInstructions = ({ pth }) => {
   const file = fs.readFileSync(pth, 'utf8');
   const instructions = YAML.parse(file);
   return instructions.reduce((accumulator, instruction) => {
-    const { src, tags, ...rest } = instruction;
+    let { src, tags = [], ...rest } = instruction;
+    // tags can be passed as an array of strings, or a comma separated string
+    if (!Array.isArray(tags)) {
+      tags = tags.split(/\s*,\s*/);
+    }
     const srcs = [].concat(src);
     return accumulator.concat(
       srcs.map(s => ({
-        src: s,
+        key: module.exports.newNoteAddress(),
+        src: module.exports.cleanseUrl(s),
         tags,
         ...rest,
       })),
@@ -110,7 +117,7 @@ module.exports.getDataFromPage = (page, queries = []) => {
           // Because there is no easy way to pass functions to pageEValuate
           query.processFn
             .toString()
-            .replace(/^[^\{]+\{(.+)\}\s*$/s, '$1')
+            .replace(/^[^{]+\{(.+)\}\s*$/s, '$1')
             .trim()
         : query.attr ? getAttr(query.attr) : getTextContent;
       if (query.query) {
@@ -185,25 +192,38 @@ module.exports.getPageProcessorStrategy = address => {
   };
 };
 
-let fakenewNoteAddress = 0;
 // generates a path for a newly created file
-module.exports.newNoteAddress = () => {
-  let filename;
-  try {
-    filename = fs
-      .readFileSync('.debug', 'utf8')
-      .replace(/.$/, (fakenewNoteAddress + 1).toString(16));
-    fakenewNoteAddress += 1;
-  } catch (e) {}
-  if (!filename) {
-    filename = uuidv4();
-  }
-  return filename;
-};
+module.exports.newNoteAddress = () => uuidv4();
 
 // generates a path for a newly created file
 module.exports.newNotePath = (filename = '') => {
   return `${PATH_BOOSTNOTE}/notes/${filename}.cson`;
+};
+
+module.exports.generateQueue = rawInstructions => {
+  const queue = rawInstructions.reduce((accumulator, { key, src, tags }) => {
+    let pageProcessor = module.exports.getPageProcessorStrategy(src);
+    src = pageProcessor.rewriteUrl(src);
+
+    let noteData = {
+      folder: FOLDER_KEY,
+      src,
+      tags: pageProcessor.consolidateTags(tags),
+      updated: new Date().toISOString(),
+      key,
+    };
+
+    accumulator.push(new Instruction(CMD_CREATE, noteData));
+    accumulator.push(
+      new Instruction(CMD_FETCH_FROM_PAGE, {
+        key,
+        src,
+        processor: pageProcessor.fetchData,
+      }),
+    );
+    return accumulator;
+  }, []);
+  return queue;
 };
 
 module.exports.cleanseUrl = url => {
@@ -219,11 +239,8 @@ const consolidateTags = (...tags) =>
   tags
     // make sure comma separate strings are turned into arrays
     .reduce((accumulator, current) => {
-      if (Array.isArray(current)) {
-        return accumulator.concat(current);
-      }
       if (current) {
-        return accumulator.concat(current.split(/\s*,\s*/));
+        return accumulator.concat(current);
       }
       return accumulator;
     }, [])
