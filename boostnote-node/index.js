@@ -6,19 +6,15 @@ const {
   cleanPageContent,
   dataIsNotEmpty,
   generateQueue,
-  getPageProcessorStrategy,
-  loadInstructions,
   newNotePath,
 } = require('./lib/lib');
+
+const InstructionsStore = require('./lib/InstructionsStore');
 
 const { log, divider } = require('./lib/utils');
 const { CMD_CREATE, CMD_FETCH_FROM_PAGE } = require('./lib/commands');
 
-const {
-  TEMPLATE_FILE_PATH,
-  FOLDER_KEY,
-  PATH_URLS_FILE,
-} = require('./lib/const');
+const { TEMPLATE_FILE_PATH, PATH_URLS_FILE } = require('./lib/const');
 
 let browser;
 let page;
@@ -31,9 +27,17 @@ if (program.dryRun) {
   log(!program.quiet, 'Running in dry-run mode...');
 }
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
-const rawIntructions = loadInstructions({ pth: PATH_URLS_FILE });
+const rawIntructions = new InstructionsStore({
+  pth: PATH_URLS_FILE,
+  srcCleaner: require('./lib/lib').cleanseUrl,
+});
+rawIntructions.on('error', err => {
+  log(true, `rawIntructions error: ${err}`);
+  process.exit(1);
+});
+rawIntructions.load();
 log(program.verbose, rawIntructions);
-const instructionsQueue = generateQueue(rawIntructions);
+const instructionsQueue = generateQueue(rawIntructions.all());
 log(program.verbose, instructionsQueue);
 
 const notes = {};
@@ -113,69 +117,69 @@ function writeNotes(noteStore) {
 
 // processFile(rawIntructions);
 
-async function processFile(queue) {
-  let { key, src, tags } = queue.shift();
-  divider(!program.quiet);
-  log(!program.quiet, `Source: ${src} ....`);
+// async function processFile(queue) {
+//   let { key, src, tags } = queue.shift();
+//   divider(!program.quiet);
+//   log(!program.quiet, `Source: ${src} ....`);
 
-  let pageProcessor = getPageProcessorStrategy(src);
-  src = pageProcessor.rewriteUrl(src);
-  log(!program.quiet, `Rewritten as: ${src}`);
+//   let pageProcessor = getPageProcessorStrategy(src);
+//   src = pageProcessor.rewriteUrl(src);
+//   log(!program.quiet, `Rewritten as: ${src}`);
 
-  let noteData = {
-    folder: FOLDER_KEY,
-    src,
-    tags: pageProcessor.consolidateTags(tags),
-    updated: new Date().toISOString(),
-    noteAddress: key,
-  };
+//   let noteData = {
+//     folder: FOLDER_KEY,
+//     src,
+//     tags: pageProcessor.consolidateTags(tags),
+//     updated: new Date().toISOString(),
+//     noteAddress: key,
+//   };
 
-  if (!notes[key]) {
-    notes[key] = noteData;
-  }
+//   if (!notes[key]) {
+//     notes[key] = noteData;
+//   }
 
-  if (!browser) {
-    browser = await puppeteer.launch();
-  }
-  const page = await browser.newPage();
-  try {
-    await page.goto(src);
-    log(!program.quiet, 'PAGE LOADED');
-    // page.on('console', msg =>
-    //   console.log('---------------------PAGE LOG:', msg.text()),
-    // );
-    noteData = await pageProcessor.fetchData({
-      browser,
-      page,
-      noteData,
-    });
-  } catch (e) {
-    console.log(`There was an error with ${src}`);
-    console.log(e);
-  }
+//   if (!browser) {
+//     browser = await puppeteer.launch();
+//   }
+//   const page = await browser.newPage();
+//   try {
+//     await page.goto(src);
+//     log(!program.quiet, 'PAGE LOADED');
+//     // page.on('console', msg =>
+//     //   console.log('---------------------PAGE LOG:', msg.text()),
+//     // );
+//     noteData = await pageProcessor.fetchData({
+//       browser,
+//       page,
+//       noteData,
+//     });
+//   } catch (e) {
+//     console.log(`There was an error with ${src}`);
+//     console.log(e);
+//   }
 
-  noteData.preamble = cleanPageContent(noteData.preamble);
-  noteData.content = cleanPageContent(noteData.content);
+//   noteData.preamble = cleanPageContent(noteData.preamble);
+//   noteData.content = cleanPageContent(noteData.content);
 
-  if (dataIsNotEmpty(noteData)) {
-    const saveTo = newNotePath(key);
-    const rendered = Mustache.render(noteTemplate, noteData);
-    if (program.dryRun) {
-      divider(!program.quiet);
-      log(!program.quiet, noteData);
-      divider(!program.quiet);
-      log(!program.quiet, rendered);
-    } else {
-      fs.writeFileSync(saveTo, rendered, 'utf8');
-      log(!program.quiet, saveTo, noteData);
-    }
-    delete noteData.content;
-    divider(!program.quiet);
-  }
+//   if (dataIsNotEmpty(noteData)) {
+//     const saveTo = newNotePath(key);
+//     const rendered = Mustache.render(noteTemplate, noteData);
+//     if (program.dryRun) {
+//       divider(!program.quiet);
+//       log(!program.quiet, noteData);
+//       divider(!program.quiet);
+//       log(!program.quiet, rendered);
+//     } else {
+//       fs.writeFileSync(saveTo, rendered, 'utf8');
+//       log(!program.quiet, saveTo, noteData);
+//     }
+//     delete noteData.content;
+//     divider(!program.quiet);
+//   }
 
-  if (queue.length === 0) {
-    await browser.close();
-    return 0;
-  }
-  processFile(queue);
-}
+//   if (queue.length === 0) {
+//     await browser.close();
+//     return 0;
+//   }
+//   processFile(queue);
+// }

@@ -4,32 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const request = require('request');
-const YAML = require('yaml');
 
 const { PATH_BOOSTNOTE, FOLDER_KEY } = require('./const');
 const Instruction = require('./Instruction');
 const { CMD_CREATE, CMD_FETCH_FROM_PAGE } = require('./commands');
-
-module.exports.loadInstructions = ({ pth }) => {
-  const file = fs.readFileSync(pth, 'utf8');
-  const instructions = YAML.parse(file);
-  return instructions.reduce((accumulator, instruction) => {
-    let { src, tags = [], ...rest } = instruction;
-    // tags can be passed as an array of strings, or a comma separated string
-    if (!Array.isArray(tags)) {
-      tags = tags.split(/\s*,\s*/);
-    }
-    const srcs = [].concat(src);
-    return accumulator.concat(
-      srcs.map(s => ({
-        key: module.exports.newNoteAddress(),
-        src: module.exports.cleanseUrl(s),
-        tags,
-        ...rest,
-      })),
-    );
-  }, []);
-};
 
 // create an image filename the way boostnote does it
 module.exports.imagePaths = (
@@ -201,28 +179,31 @@ module.exports.newNotePath = (filename = '') => {
 };
 
 module.exports.generateQueue = rawInstructions => {
-  const queue = rawInstructions.reduce((accumulator, { key, src, tags }) => {
-    let pageProcessor = module.exports.getPageProcessorStrategy(src);
-    src = pageProcessor.rewriteUrl(src);
+  const queue = rawInstructions.reduce(
+    (accumulator, { key = uuidv4(), src, tags }) => {
+      let pageProcessor = module.exports.getPageProcessorStrategy(src);
+      src = pageProcessor.rewriteUrl(src);
 
-    let noteData = {
-      folder: FOLDER_KEY,
-      src,
-      tags: pageProcessor.consolidateTags(tags),
-      updated: new Date().toISOString(),
-      key,
-    };
-
-    accumulator.push(new Instruction(CMD_CREATE, noteData));
-    accumulator.push(
-      new Instruction(CMD_FETCH_FROM_PAGE, {
-        key,
+      let noteData = {
+        folder: FOLDER_KEY,
         src,
-        processor: pageProcessor.fetchData,
-      }),
-    );
-    return accumulator;
-  }, []);
+        tags: pageProcessor.consolidateTags(tags),
+        updated: new Date().toISOString(),
+        key,
+      };
+
+      accumulator.push(new Instruction(CMD_CREATE, noteData));
+      accumulator.push(
+        new Instruction(CMD_FETCH_FROM_PAGE, {
+          key,
+          src,
+          processor: pageProcessor.fetchData,
+        }),
+      );
+      return accumulator;
+    },
+    [],
+  );
   return queue;
 };
 
