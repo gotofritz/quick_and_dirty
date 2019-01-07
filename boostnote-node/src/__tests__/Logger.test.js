@@ -5,9 +5,13 @@ describe('Logger', () => {
   let spies = {};
   const LOG_MESSAGE = 'just a log message';
   const ERROR_MESSAGE = 'here is an error message';
+  const INFO_MESSAGE = 'and finally an info message';
 
   beforeEach(() => {
     spies.log = jest.spyOn(global.console, 'log').mockImplementation(() => {});
+    spies.info = jest
+      .spyOn(global.console, 'info')
+      .mockImplementation(() => {});
     spies.error = jest
       .spyOn(global.console, 'error')
       .mockImplementation(() => {});
@@ -32,9 +36,23 @@ describe('Logger', () => {
     });
 
     it('logs all arguments', () => {
-      sut.log(LOG_MESSAGE, ERROR_MESSAGE, LOG_MESSAGE);
+      sut.log(INFO_MESSAGE, ERROR_MESSAGE, LOG_MESSAGE);
       expect(spies.log).toHaveBeenCalledWith(
+        INFO_MESSAGE,
+        ERROR_MESSAGE,
         LOG_MESSAGE,
+      );
+    });
+
+    it('infos', () => {
+      sut.info(INFO_MESSAGE);
+      expect(spies.info).toHaveBeenCalledWith(INFO_MESSAGE);
+    });
+
+    it('infos all arguments', () => {
+      sut.info(INFO_MESSAGE, ERROR_MESSAGE, LOG_MESSAGE);
+      expect(spies.info).toHaveBeenCalledWith(
+        INFO_MESSAGE,
         ERROR_MESSAGE,
         LOG_MESSAGE,
       );
@@ -46,11 +64,11 @@ describe('Logger', () => {
     });
 
     it('errors all arguments', () => {
-      sut.error(LOG_MESSAGE, ERROR_MESSAGE, LOG_MESSAGE);
+      sut.error(LOG_MESSAGE, ERROR_MESSAGE, INFO_MESSAGE);
       expect(spies.error).toHaveBeenCalledWith(
         LOG_MESSAGE,
         ERROR_MESSAGE,
-        LOG_MESSAGE,
+        INFO_MESSAGE,
       );
     });
 
@@ -66,9 +84,14 @@ describe('Logger', () => {
       sut = new Logger({ verbose: false });
     });
 
-    it('does not log', () => {
+    it('does not info', () => {
+      sut.info(INFO_MESSAGE);
+      expect(spies.info).not.toHaveBeenCalled();
+    });
+
+    it('logs', () => {
       sut.log(LOG_MESSAGE);
-      expect(spies.log).not.toHaveBeenCalled();
+      expect(spies.log).toHaveBeenCalledWith(LOG_MESSAGE);
     });
 
     it('errors', () => {
@@ -85,6 +108,11 @@ describe('Logger', () => {
   describe('when quiet', () => {
     beforeEach(() => {
       sut = new Logger({ quiet: true, verbose: Math.random() > 0.5 });
+    });
+
+    it('does not info', () => {
+      sut.info(INFO_MESSAGE);
+      expect(spies.info).not.toHaveBeenCalled();
     });
 
     it('does not log', () => {

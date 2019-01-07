@@ -11,8 +11,14 @@ class Logger {
   }
 
   log(...args) {
-    if (!this.quiet && this.verbose) {
+    if (!this.quiet) {
       console.log(...args);
+    }
+  }
+
+  info(...args) {
+    if (!this.quiet && this.verbose) {
+      console.info(...args);
     }
   }
 

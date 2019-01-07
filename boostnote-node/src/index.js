@@ -9,12 +9,12 @@ const {
   newNotePath,
 } = require('./lib/lib');
 
-const InstructionsStore = require('./lib/InstructionsStore');
-
-const { log, divider } = require('./lib/utils');
 const { CMD_CREATE, CMD_FETCH_FROM_PAGE } = require('./lib/commands');
 
 const { TEMPLATE_FILE_PATH, PATH_URLS_FILE } = require('./lib/const');
+
+const InstructionsStore = require('./lib/InstructionsStore');
+const Logger = require('./lib/Logger');
 
 let browser;
 let page;
@@ -23,8 +23,10 @@ let pageData;
 const program = require('./lib/readCliParams')({
   PATH_URLS_FILE,
 });
+const logger = new Logger(program);
+
 if (program.dryRun) {
-  log(!program.quiet, 'Running in dry-run mode...');
+  logger.log('Running in dry-run mode...');
 }
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
 const rawIntructions = new InstructionsStore({
@@ -32,13 +34,12 @@ const rawIntructions = new InstructionsStore({
   srcCleaner: require('./lib/lib').cleanseUrl,
 });
 rawIntructions.on('error', err => {
-  log(true, `rawIntructions error: ${err}`);
+  logger.error(`rawIntructions error: ${err}`);
   process.exit(1);
 });
 rawIntructions.load();
-log(program.verbose, rawIntructions);
 const instructionsQueue = generateQueue(rawIntructions.all());
-log(program.verbose, instructionsQueue);
+logger.info(rawIntructions, instructionsQueue);
 
 const notes = {};
 
@@ -58,7 +59,7 @@ async function processQueue(queue) {
       page = await browser.newPage();
       try {
         await page.goto(instruction.payload.src);
-        log(!program.quiet, 'PAGE LOADED');
+        logger.info('PAGE LOADED');
         // page.on('console', msg =>
         //   console.log('---------------------PAGE LOG:', msg.text()),
         // );
@@ -71,21 +72,21 @@ async function processQueue(queue) {
           pageData,
         );
       } catch (e) {
-        log(true, `There was an error with ${instruction.payload.src}`);
-        log(true, e);
+        logger.error(`There was an error with ${instruction.payload.src}`);
+        logger.error(e);
       }
       break;
 
     default:
-      log(!program.quiet, `ERROR: unknown command ${instruction.cmd}`);
+      logger.error(`ERROR: unknown command ${instruction.cmd}`);
       return;
   }
   if (queue.length === 0) {
     if (browser) {
       await browser.close();
     }
-    log(!program.quiet, 'finished process queue');
-    log(!program.quiet, notes);
+    logger.log('finished process queue');
+    logger.info(notes);
     writeNotes(notes);
   } else {
     processQueue(queue);
@@ -100,18 +101,18 @@ function writeNotes(noteStore) {
       const saveTo = newNotePath(key);
       const rendered = Mustache.render(noteTemplate, note);
       if (program.dryRun) {
-        divider(!program.quiet);
-        log(!program.quiet, note);
-        divider(!program.quiet);
-        log(!program.quiet, rendered);
+        logger.divider();
+        logger.info(note);
+        logger.divider();
+        logger.info(rendered);
       } else {
         fs.writeFileSync(saveTo, rendered, 'utf8');
-        log(!program.quiet, saveTo, note);
+        logger.info(saveTo, note);
       }
-      divider(!program.quiet);
+      logger.divider();
     }
   });
-  log(!program.quiet, 'FINISHED');
+  logger.log('FINISHED');
   return 0;
 }
 
@@ -119,12 +120,12 @@ function writeNotes(noteStore) {
 
 // async function processFile(queue) {
 //   let { key, src, tags } = queue.shift();
-//   divider(!program.quiet);
-//   log(!program.quiet, `Source: ${src} ....`);
+//   logger.divider();
+//   logger.log(`Source: ${src} ....`);
 
 //   let pageProcessor = getPageProcessorStrategy(src);
 //   src = pageProcessor.rewriteUrl(src);
-//   log(!program.quiet, `Rewritten as: ${src}`);
+//   logger.log(`Rewritten as: ${src}`);
 
 //   let noteData = {
 //     folder: FOLDER_KEY,
@@ -144,7 +145,7 @@ function writeNotes(noteStore) {
 //   const page = await browser.newPage();
 //   try {
 //     await page.goto(src);
-//     log(!program.quiet, 'PAGE LOADED');
+//     logger.log('PAGE LOADED');
 //     // page.on('console', msg =>
 //     //   console.log('---------------------PAGE LOG:', msg.text()),
 //     // );
@@ -165,16 +166,16 @@ function writeNotes(noteStore) {
 //     const saveTo = newNotePath(key);
 //     const rendered = Mustache.render(noteTemplate, noteData);
 //     if (program.dryRun) {
-//       divider(!program.quiet);
-//       log(!program.quiet, noteData);
-//       divider(!program.quiet);
-//       log(!program.quiet, rendered);
+//       logger.divider();
+//       logger.log(noteData);
+//       logger.divider();
+//       logger.log(rendered);
 //     } else {
 //       fs.writeFileSync(saveTo, rendered, 'utf8');
-//       log(!program.quiet, saveTo, noteData);
+//       logger.log(saveTo, noteData);
 //     }
 //     delete noteData.content;
-//     divider(!program.quiet);
+//     logger.divider();
 //   }
 
 //   if (queue.length === 0) {
