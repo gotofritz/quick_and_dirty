@@ -71,8 +71,8 @@ async function processQueue(queue) {
           pageData,
         );
       } catch (e) {
-        console.log(`There was an error with ${instruction.payload.src}`);
-        console.log(e);
+        log(true, `There was an error with ${instruction.payload.src}`);
+        log(true, e);
       }
       break;
 

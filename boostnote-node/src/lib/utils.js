@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // console.log allowing flags to control whether to log or not
 module.exports.log = (shouldLog, ...args) => {
   if (shouldLog) {
@@ -10,6 +11,7 @@ module.exports.divider = shouldLog => {
     console.log('-'.repeat(62));
   }
 };
+// eslint-enable no-console
 
 // simple error handling
 module.exports.die = (...args) => {

@@ -45,12 +45,10 @@ module.exports.getImage = ({ imageUrl, noteAddress }) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir);
   }
-  console.log(`Getting image ${imageUrl} and saving to ${destPath}...`);
   return new Promise((resolve, reject) =>
     request
       .get(imageUrl)
       .on('error', function(err) {
-        console.log('ERRRR', err);
         reject(err);
       })
       .pipe(fs.createWriteStream(destPath))
@@ -97,7 +95,9 @@ module.exports.getDataFromPage = (page, queries = []) => {
             .toString()
             .replace(/^[^{]+\{(.+)\}\s*$/s, '$1')
             .trim()
-        : query.attr ? getAttr(query.attr) : getTextContent;
+        : query.attr
+        ? getAttr(query.attr)
+        : getTextContent;
       if (query.query) {
         query.query = [].concat(query.query);
       }
@@ -159,7 +159,9 @@ module.exports.pathinfo = pathinfo;
 module.exports.getPageProcessorStrategy = address => {
   const DEFAULT_STRATEGY = 'generic';
   // extracts 'youtube' from a youtube url, etc
-  let { hostnameFragments: [strategy] } = pathinfo(address);
+  let {
+    hostnameFragments: [strategy],
+  } = pathinfo(address);
   if (!pageProcessorStrategies[strategy]) {
     strategy = DEFAULT_STRATEGY;
   }

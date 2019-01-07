@@ -2,14 +2,19 @@
   "name": "boostnote-node",
   "version": "0.2.0",
   "description": "Creates nodes from various pages around the new",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "jest",
-    "test:dev": "jest --watch"
+    "test": "npm run test:lint && npm run test:jest",
+    "test:lint": "eslint --fix src/ && prettier src/**/*.js --write .",
+    "test:jest:watch": "jest --watch",
+    "test:jest": "jest"
   },
   "keywords": [],
   "author": "gotofritz",
   "license": "ISC",
+  "jest": {
+    "rootDir": "src/"
+  },
   "dependencies": {
     "commander": "2.19.0",
     "mustache": "3.0.0",
@@ -20,6 +25,13 @@
     "yaml": "1.0.2"
   },
   "devDependencies": {
-    "jest": "23.6.0"
+    "eslint": "5.12.0",
+    "eslint-config-prettier": "3.3.0",
+    "eslint-plugin-import": "2.14.0",
+    "eslint-plugin-node": "8.0.1",
+    "eslint-plugin-prettier": "3.0.1",
+    "eslint-plugin-promise": "4.0.1",
+    "jest": "23.6.0",
+    "prettier": "1.15.3"
   }
 }

@@ -4,11 +4,10 @@ const { consolidateTags } = require('./lib');
 
 // one section of the YT data
 const getYtplayerData = page =>
-  page.evaluate(
-    () =>
-      window.ytplayer && window.ytplayer.config
-        ? window.ytplayer.config.args
-        : null,
+  page.evaluate(() =>
+    window.ytplayer && window.ytplayer.config
+      ? window.ytplayer.config.args
+      : null,
   );
 
 // another section of the YT data

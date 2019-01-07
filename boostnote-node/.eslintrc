@@ -1,6 +1,23 @@
 {
+  "extends": ["prettier"],
+  "plugins": ["prettier"],
+  "rules": {
+    "prettier/prettier": "error",
+    "no-console": "warn"
+  },
   "globals": {
     "document": true,
-    "window": true
+    "window": true,
+    "it": true,
+    "test": true,
+    "jest": true,
+    "expect": true,
+    "describe": true,
+    "afterAll": true,
+    "beforeAll": true,
+    "beforeEach": true
+  },
+  "env": {
+    "node": true
   }
 }
