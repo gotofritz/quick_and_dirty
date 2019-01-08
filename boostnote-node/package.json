@@ -13,7 +13,8 @@
   "author": "gotofritz",
   "license": "ISC",
   "jest": {
-    "rootDir": "src/"
+    "rootDir": "src/",
+     "setupTestFrameworkScriptFile": "jest-extended"
   },
   "lint-staged": {
     "src/**/*.js": [
@@ -44,6 +45,7 @@
     "eslint-plugin-promise": "4.0.1",
     "husky": "1.3.1",
     "jest": "23.6.0",
+    "jest-extended": "0.11.0",
     "lint-staged": "8.1.0",
     "prettier": "1.15.3"
   }

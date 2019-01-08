@@ -39,7 +39,7 @@ rawIntructions.on('error', err => {
 });
 rawIntructions.load();
 const instructionsQueue = generateQueue(rawIntructions.all());
-logger.info(rawIntructions, instructionsQueue);
+logger.info(rawIntructions.all(), instructionsQueue);
 
 const notes = {};
 

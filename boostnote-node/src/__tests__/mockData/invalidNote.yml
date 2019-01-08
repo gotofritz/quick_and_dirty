@@ -1,0 +1,29 @@
+created: 2018-01-07T06:40
+updated: 2019-01-07T06:40
+title: This is a title. A lovely title.
+src: https://example.com
+authors:
+  - john
+  - paul
+  - ringo
+  - george
+tags:
+  - a tag
+  - another tag
+preamble: >
+  Veggies es bonus vobis, proinde vos postulo essum magis kohlrabi welsh onion
+  daikon amaranth tatsoi tomatillo melon azuki bean garlic.
+content: >
+  Veggies es bonus vobis, proinde vos postulo essum magis kohlrabi welsh onion
+  daikon amaranth tatsoi tomatillo melon azuki bean garlic.
+
+  Gumbo beet <b>greens</b> corn soko <i>endive gumbo</ai> gourd. Parsley shallot courgette
+
+  <p>
+    tatsoi pea sprouts fava bean collard greens dandelion okra wakame tomato.
+    Dandelion cucumber earthnut pea peanut soko zucchini.
+  </p>
+rhythm guitar: john
+bass: paul
+drums: ringo
+lead guitar: george
