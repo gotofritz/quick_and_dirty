@@ -8,6 +8,9 @@
  */
 const EventEmitter = require('events');
 const fs = require('fs');
+const path = require('path');
+
+const mkdirp = require('mkdirp');
 const YAML = require('yaml');
 
 class InstructionsStore extends EventEmitter {
@@ -23,6 +26,13 @@ class InstructionsStore extends EventEmitter {
     this.instructions = [];
     this.pth = pth;
     this.srcCleaner = srcCleaner;
+    const logsPath = path.join(
+      process.cwd(),
+      '.boostnote',
+      new Date().toISOString().replace(/\W/g, ''),
+    );
+    this.logsFile = logsPath + '-log.yml';
+    this.errorFile = logsPath + '-error.yml';
   }
 
   /**
@@ -48,26 +58,61 @@ class InstructionsStore extends EventEmitter {
       }
 
       rawInstructions = YAML.parse(file);
-      this.instructions = rawInstructions.reduce((accumulator, current) => {
-        if (!current.src) return accumulator;
+      this.instructions = reduceYAMLToArray(rawInstructions, {
+        srcCleaner: this.srcCleaner,
+      });
 
-        let { src, tags = [] } = current;
-        if (!Array.isArray(tags)) {
-          tags = tags.split(/\s*,\s*/);
-        }
-        const srcs = [].concat(src);
-        return accumulator.concat(
-          srcs.map(s => ({
-            src: this.srcCleaner(s),
-            tags,
-          })),
-        );
-      }, []);
+      createLogsDirIfNeeded(this.logsFile);
+      this.log();
     } catch (err) {
       this.emit('error', `InstructionsStore.load error ${err}`);
     }
     return this;
   }
+
+  log() {
+    dumpInstructionsToFile(this.instructions, this.logsFile);
+    dumpInstructionsToFile(
+      this.instructions.filter(instruction => instruction.error),
+      this.errorFile,
+    );
+  }
+}
+
+function reduceYAMLToArray(yamlObj, { srcCleaner }) {
+  return yamlObj.reduce((accumulator, current) => {
+    if (!current.src) return accumulator;
+
+    let { src, tags = [] } = current;
+    if (!Array.isArray(tags)) {
+      tags = tags.split(/\s*,\s*/);
+    }
+    const srcs = [].concat(src);
+    return accumulator.concat(
+      srcs.map(s => ({
+        src: srcCleaner(s),
+        tags,
+        processed: false,
+      })),
+    );
+  }, []);
+}
+
+function createLogsDirIfNeeded(filePath) {
+  if (!filePath) return;
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    mkdirp.sync(dir);
+  }
+}
+
+function dumpInstructionsToFile(instructions, filePath) {
+  if (!filePath) return;
+  if (instructions.length === 0) return;
+
+  const instructionsAsYAML = YAML.stringify(instructions);
+  fs.writeFileSync(filePath, instructionsAsYAML, 'utf8');
 }
 
 module.exports = InstructionsStore;
