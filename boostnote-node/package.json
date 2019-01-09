@@ -14,7 +14,7 @@
   "license": "ISC",
   "jest": {
     "rootDir": "src/",
-     "setupTestFrameworkScriptFile": "jest-extended"
+    "setupTestFrameworkScriptFile": "jest-extended"
   },
   "lint-staged": {
     "src/**/*.js": [
@@ -40,6 +40,7 @@
     "eslint": "5.12.0",
     "eslint-config-prettier": "3.3.0",
     "eslint-plugin-import": "2.14.0",
+    "eslint-plugin-jest": "22.1.2",
     "eslint-plugin-node": "8.0.1",
     "eslint-plugin-prettier": "3.0.1",
     "eslint-plugin-promise": "4.0.1",

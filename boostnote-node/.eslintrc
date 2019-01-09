@@ -1,23 +1,21 @@
 {
-  "extends": ["prettier"],
-  "plugins": ["prettier"],
+  "extends": ["prettier", "plugin:jest/recommended"],
+  "plugins": ["prettier", "jest"],
   "rules": {
     "prettier/prettier": "error",
-    "no-console": "warn"
+    "no-console": "warn",
+    "jest/no-disabled-tests": "warn",
+    "jest/no-focused-tests": "error",
+    "jest/no-identical-title": "error",
+    "jest/prefer-to-have-length": "warn",
+    "jest/valid-expect": "error"
   },
   "globals": {
     "document": true,
-    "window": true,
-    "it": true,
-    "test": true,
-    "jest": true,
-    "expect": true,
-    "describe": true,
-    "afterAll": true,
-    "beforeAll": true,
-    "beforeEach": true
+    "window": true
   },
   "env": {
-    "node": true
+    "node": true,
+    "jest/globals": true
   }
 }

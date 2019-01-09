@@ -57,7 +57,7 @@ describe('InstructionsStore', () => {
     sut = new InstructionsStore({
       pth: URL_SINGLE,
     }).load();
-    expect(sut.all().length).toEqual(1);
+    expect(sut.all()).toHaveLength(1);
   });
 
   describe('loads a list of instructions', () => {
@@ -100,7 +100,7 @@ describe('InstructionsStore', () => {
         },
         0,
       );
-      expect(instructions.length).toEqual(
+      expect(instructions).toHaveLength(
         rawInstructions.length + extraInstructions,
       );
     });
@@ -112,6 +112,8 @@ describe('InstructionsStore', () => {
       srcCleaner: src => src.substr(0, 5).replace(/./g, '*'),
     }).load();
     const instructions = sut.all();
-    expect(instructions.every(instruction => instruction.src === '*****'));
+    expect(
+      instructions.every(instruction => instruction.src === '*****'),
+    ).toBeTrue();
   });
 });

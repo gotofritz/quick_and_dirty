@@ -4,7 +4,7 @@ const path = require('path');
 
 const NotesStore = require('../lib/NotesStore');
 
-describe.only('NotesStore', () => {
+describe('NotesStore', () => {
   let sut;
   let validNote;
   let incompleteNote;
@@ -54,20 +54,20 @@ describe.only('NotesStore', () => {
     it('adds one record', () => {
       let noteData;
       noteData = sut.read();
-      expect(noteData.length).toBe(0);
+      expect(noteData).toHaveLength(0);
       sut.create(validNote);
       noteData = sut.read();
-      expect(noteData.length).toBe(1);
+      expect(noteData).toHaveLength(1);
       expect(noteData[0]).toMatchObject(validNote);
     });
 
     it('adds many records', () => {
       let noteData;
       noteData = sut.read();
-      expect(noteData.length).toBe(0);
+      expect(noteData).toHaveLength(0);
       sut.create([validNote, validNote, validNote]);
       noteData = sut.read();
-      expect(noteData.length).toBe(3);
+      expect(noteData).toHaveLength(3);
       expect(noteData[0]).toMatchObject(validNote);
     });
 
@@ -92,7 +92,7 @@ describe.only('NotesStore', () => {
     it('does not break when called with no arguments', () => {
       expect(sut.create).not.toThrow();
       sut.create();
-      expect(sut.read().length).toBe(0);
+      expect(sut.read()).toHaveLength(0);
     });
 
     it('returns a key as a string when adding a single record', () => {
@@ -132,10 +132,10 @@ describe.only('NotesStore', () => {
 
     it('does not add note if it lacks src field', () => {
       let actual = sut.read();
-      expect(actual.length).toBe(0);
+      expect(actual).toHaveLength(0);
       sut.create(noteWithNoSrc);
       actual = sut.read();
-      expect(actual.length).toBe(0);
+      expect(actual).toHaveLength(0);
     });
 
     it('emits error event if a record is not insertable', done => {
