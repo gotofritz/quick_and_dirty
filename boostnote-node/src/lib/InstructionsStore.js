@@ -35,6 +35,12 @@ class InstructionsStore extends EventEmitter {
     this.errorFile = logsPath + '-error.yml';
   }
 
+  one(key) {
+    if (Number.isInteger(key) && key >= 0 && key < this.instructions.length) {
+      return Object.assign({}, this.instructions[key]);
+    }
+  }
+
   /**
    * @returns {Array} all the loaded instructions
    */
@@ -76,6 +82,23 @@ class InstructionsStore extends EventEmitter {
       this.instructions.filter(instruction => instruction.error),
       this.errorFile,
     );
+  }
+
+  forEach(cb) {
+    this.instructions.forEach(cb);
+  }
+
+  update(key, fields = {}) {
+    if (key == undefined) return;
+    if (Object.keys(fields).length === 0) return;
+    if (Number.isInteger(key) && key >= 0 && key < this.instructions.length) {
+      this.instructions[key] = Object.assign(
+        {},
+        this.instructions[key],
+        fields,
+      );
+    }
+    this.log();
   }
 }
 

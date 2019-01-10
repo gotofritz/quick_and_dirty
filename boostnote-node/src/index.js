@@ -15,6 +15,7 @@ const { TEMPLATE_FILE_PATH, PATH_URLS_FILE } = require('./lib/const');
 
 const InstructionsStore = require('./lib/InstructionsStore');
 const Logger = require('./lib/Logger');
+const NotesStore = require('./lib/NotesStore');
 
 let browser;
 let page;
@@ -38,10 +39,18 @@ rawIntructions.on('error', err => {
   process.exit(1);
 });
 rawIntructions.load();
+const notes = new NotesStore();
+notes.on('error', err => {
+  logger.error(`notes error: ${err}`);
+});
+rawIntructions.forEach((instruction, i) => {
+  const key = notes.create(instruction);
+  rawIntructions.update(i, { key });
+});
 const instructionsQueue = generateQueue(rawIntructions.all());
 logger.info(rawIntructions.all(), instructionsQueue);
 
-const notes = {};
+const notesTemp = {};
 
 processQueue(instructionsQueue);
 
@@ -49,7 +58,7 @@ async function processQueue(queue) {
   const instruction = queue.shift();
   switch (instruction.cmd) {
     case CMD_CREATE:
-      notes[instruction.payload.key] = instruction.payload;
+      notesTemp[instruction.payload.key] = instruction.payload;
       break;
 
     case CMD_FETCH_FROM_PAGE:
@@ -67,8 +76,8 @@ async function processQueue(queue) {
           browser,
           page,
         });
-        notes[instruction.payload.key] = Object.assign(
-          notes[instruction.payload.key],
+        notesTemp[instruction.payload.key] = Object.assign(
+          notesTemp[instruction.payload.key],
           pageData,
         );
       } catch (e) {
@@ -86,8 +95,8 @@ async function processQueue(queue) {
       await browser.close();
     }
     logger.log('finished process queue');
-    logger.info(notes);
-    writeNotes(notes);
+    logger.info(notesTemp);
+    writeNotes(notesTemp);
   } else {
     processQueue(queue);
   }

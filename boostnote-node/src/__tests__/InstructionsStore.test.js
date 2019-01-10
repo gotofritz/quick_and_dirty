@@ -11,6 +11,7 @@ describe('InstructionsStore', () => {
   const URL_EMPTY = path.join(PTH_PREFIX, 'urlsEmpty.yml');
   const URL_SINGLE = path.join(PTH_PREFIX, 'urlsSingle.yml');
   const URL_MANY = path.join(PTH_PREFIX, 'urls.yml');
+  const URL_FEW = path.join(PTH_PREFIX, 'urlsAFew.yml');
   const FOLDER_PATH = path.join(process.cwd(), '.boostnote');
 
   it('can be instantiated', () => {
@@ -95,7 +96,7 @@ describe('InstructionsStore', () => {
       expect(
         instructions.every(instruction => !Array.isArray(instruction.src)),
       ).toBeTruthy();
-      const file = require('fs').readFileSync(URL_MANY, 'utf8');
+      const file = fs.readFileSync(URL_MANY, 'utf8');
       const rawInstructions = YAML.parse(file);
       const extraInstructions = rawInstructions.reduce(
         (accumulator, current) => {
@@ -153,6 +154,101 @@ describe('InstructionsStore', () => {
       expect(logDate).toBeAfter(
         new Date().setMinutes(new Date().getMinutes() - 5),
       );
+    });
+  });
+
+  describe('iterates through instructions', () => {
+    beforeEach(
+      () =>
+        (sut = new InstructionsStore({
+          pth: URL_FEW,
+        }).load()),
+    );
+
+    it('has a forEach method that takes a callback', () => {
+      const mockCallback = jest.fn();
+      const soManyInstructions = 4;
+      sut.forEach(mockCallback);
+      expect(mockCallback.mock.calls).toHaveLength(soManyInstructions);
+      for (let i = 0; i < soManyInstructions; i++) {
+        expect(mockCallback.mock.calls[i][1]).toBe(i);
+      }
+      for (let i = 0; i < soManyInstructions; i++) {
+        expect(mockCallback.mock.calls[i][0]).toContainKeys(['src', 'tags']);
+      }
+    });
+
+    it('updates actual instruction', () => {
+      const callback = instruction => (instruction.guitar = 'john');
+      sut.forEach(callback);
+      expect(
+        sut.all().every(instruction => instruction.guitar === 'john'),
+      ).toBeTrue();
+    });
+  });
+
+  describe('reads and updates', () => {
+    beforeEach(() => {
+      rimraf.sync(FOLDER_PATH);
+      sut = new InstructionsStore({
+        pth: URL_FEW,
+      }).load();
+    });
+
+    it("doesn't do anything if no arguments passed", () => {
+      const original = sut.all();
+      sut.update();
+      expect(sut.all()).toEqual(original);
+      sut.update(0);
+      expect(sut.all()).toEqual(original);
+      sut.update(0, {});
+      expect(sut.all()).toEqual(original);
+    });
+
+    it("doesn't do anything if number is a digit outside of range", () => {
+      const original = sut.all();
+      sut.update(12, { key: 123 });
+      expect(sut.all()).toEqual(original);
+      expect(sut.one(12)).toBeUndefined();
+    });
+
+    it('updates a field with a value', () => {
+      const key = 0;
+      const original = Object.keys(sut.one(key));
+      expect(sut.one(key)).not.toContainKey('key');
+      sut.update(0, { key: 123 });
+      expect(sut.one(key)).toContainKeys(original);
+      expect(sut.one(key)).toContainKey('key');
+    });
+
+    it('updates a field with many values', () => {
+      const key = 0;
+      const fields = { guitar: 'john', drums: 'ringo' };
+      const newKeys = Object.keys(fields);
+      const original = Object.keys(sut.one(key));
+      expect(sut.one(key)).not.toContainKeys(newKeys);
+      sut.update(0, fields);
+      expect(sut.one(key)).toContainKeys(original);
+      expect(sut.one(key)).toContainKeys(newKeys);
+      for (let i = 1; i <= 3; i++) {
+        expect(sut.one(key + i)).not.toContainKeys(['guitar', 'drums']);
+      }
+    });
+
+    it('logs when it updates', () => {
+      const key = 0;
+      const fields = { guitar: 'john', drums: 'ringo' };
+      const newKeys = Object.keys(fields);
+      sut.update(0, fields);
+
+      const logFiles = fs.readdirSync(FOLDER_PATH);
+      expect(logFiles).toHaveLength(1);
+      const file = fs.readFileSync(path.join(FOLDER_PATH, logFiles[0]), 'utf8');
+      const rawInstructions = YAML.parse(file);
+      expect(rawInstructions[key]).toContainKeys(newKeys);
+      for (let i = 1; i <= 3; i++) {
+        expect(rawInstructions[key + i]).not.toContainKeys(['guitar', 'drums']);
+      }
     });
   });
 });
