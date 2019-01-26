@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const request = require('request');
+const YAML = require('yaml');
+const mkdirp = require('mkdirp');
 
 const { PATH_BOOSTNOTE, FOLDER_KEY } = require('./const');
 const Instruction = require('./Instruction');
@@ -21,6 +23,13 @@ module.exports.imagePaths = (
     source: `:storage/${noteAddress}/${imageFile}`,
   };
 };
+
+module.exports.logsPath = suffix =>
+  path.join(
+    process.cwd(),
+    '.boostnote',
+    new Date().toISOString().replace(/\W/g, '') + `-${suffix}.yml`,
+  );
 
 module.exports.markdownImageFromPath = destPath => {
   const parts = destPath
@@ -56,6 +65,15 @@ module.exports.getImage = ({ imageUrl, noteAddress }) => {
         return resolve(destPath);
       }),
   );
+};
+
+module.exports.dumpInstructionsToFile = (instructions, filePath) => {
+  if (!filePath) return;
+  if (instructions.length === 0) return;
+
+  createLogsDirIfNeeded(filePath);
+  const instructionsAsYAML = YAML.stringify(instructions);
+  fs.writeFileSync(filePath, instructionsAsYAML, 'utf8');
 };
 
 // ensure a data object hassome data into it
@@ -245,3 +263,12 @@ const pageProcessorStrategies = {
   codepen: require('./codepen'),
   reddit: require('./reddit'),
 };
+
+function createLogsDirIfNeeded(filePath) {
+  if (!filePath) return;
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    mkdirp.sync(dir);
+  }
+}

@@ -8,10 +8,9 @@
  */
 const EventEmitter = require('events');
 const fs = require('fs');
-const path = require('path');
-
-const mkdirp = require('mkdirp');
 const YAML = require('yaml');
+
+const { dumpInstructionsToFile, logsPath } = require('./lib');
 
 class InstructionsStore extends EventEmitter {
   /**
@@ -21,24 +20,24 @@ class InstructionsStore extends EventEmitter {
    * @param {function*} config.srcCleaner a function that will be applied to src
    *                    before adding it to the list, default just pass through
    */
-  constructor({ pth, srcCleaner = src => src } = {}) {
+  constructor({ urls, srcCleaner = src => src } = {}) {
     super();
     this.instructions = [];
-    this.pth = pth;
+    this.urls = urls;
     this.srcCleaner = srcCleaner;
-    const logsPath = path.join(
-      process.cwd(),
-      '.boostnote',
-      new Date().toISOString().replace(/\W/g, ''),
-    );
-    this.logsFile = logsPath + '-log.yml';
-    this.errorFile = logsPath + '-error.yml';
+    this.logsFile = logsPath('log');
+    this.errorFile = logsPath('error');
+    this.unprocessedFile = logsPath('unprocessed');
   }
 
   one(key) {
     if (Number.isInteger(key) && key >= 0 && key < this.instructions.length) {
       return Object.assign({}, this.instructions[key]);
     }
+  }
+
+  get length() {
+    return this.instructions.length;
   }
 
   /**
@@ -54,11 +53,11 @@ class InstructionsStore extends EventEmitter {
    * @return {InstructionsStore} for chaining
    */
   load() {
-    if (!this.pth) return this;
+    if (!this.urls) return this;
 
     let rawInstructions;
     try {
-      const file = fs.readFileSync(this.pth, 'utf8');
+      const file = fs.readFileSync(this.urls, 'utf8');
       if (file.trim() === '') {
         return this;
       }
@@ -68,7 +67,6 @@ class InstructionsStore extends EventEmitter {
         srcCleaner: this.srcCleaner,
       });
 
-      createLogsDirIfNeeded(this.logsFile);
       this.log();
     } catch (err) {
       this.emit('error', `InstructionsStore.load error ${err}`);
@@ -81,6 +79,10 @@ class InstructionsStore extends EventEmitter {
     dumpInstructionsToFile(
       this.instructions.filter(instruction => instruction.error),
       this.errorFile,
+    );
+    dumpInstructionsToFile(
+      this.instructions.filter(instruction => instruction.processed === false),
+      this.unprocessedFile,
     );
   }
 
@@ -119,23 +121,6 @@ function reduceYAMLToArray(yamlObj, { srcCleaner }) {
       })),
     );
   }, []);
-}
-
-function createLogsDirIfNeeded(filePath) {
-  if (!filePath) return;
-
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    mkdirp.sync(dir);
-  }
-}
-
-function dumpInstructionsToFile(instructions, filePath) {
-  if (!filePath) return;
-  if (instructions.length === 0) return;
-
-  const instructionsAsYAML = YAML.stringify(instructions);
-  fs.writeFileSync(filePath, instructionsAsYAML, 'utf8');
 }
 
 module.exports = InstructionsStore;

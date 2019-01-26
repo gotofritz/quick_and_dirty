@@ -47,13 +47,10 @@ const mkdirp = require('mkdirp');
 
 const CaptnM = require('./lib/shared');
 const DEFAULT_CONFIG = CaptnM.defaultConfigPath();
-const DEFAULT_CONFIG_BAK = DEFAULT_CONFIG.replace(
-  /\.config\.yml/,
-  '.config.yml.bak',
-);
 const program = require('./lib/file-collector/config')({
   DEFAULT_CONFIG,
 });
+const DEFAULT_CONFIG_BAK = program.config.replace(/\.yml$/, '.yml.bak');
 
 const GLOB_SETTINGS = Object.freeze({ nodir: true });
 const EXTENSION_GLOB = 'mp4';
@@ -189,8 +186,13 @@ function getListOfFilesToCopy(instructions, config = {}) {
 
       // ignore = regexp for file(s) not to be included in search
       if (instruction.ignore) {
-        const isFileToIgnore = new RegExp(instruction.ignore);
-        allFiles = allFiles.filter(file => !isFileToIgnore.test(file));
+        instruction.ignore = [].concat(instruction.ignore);
+        const ignoreRegexes = instruction.ignore.map(
+          ignore => new RegExp(ignore),
+        );
+        allFiles = allFiles.filter(
+          file => !ignoreRegexes.some(re => re.test(file)),
+        );
         if (allFiles.length === 0) {
           CaptnM.logError(
             `No files left in ${instruction.src} after applying ignore: ${

@@ -5,9 +5,16 @@
  * verbose flag
  */
 class Logger {
-  constructor({ verbose = false, quiet = false } = {}) {
+  constructor({ verbose = false, quiet = false, dryRun = false } = {}) {
     this.verbose = verbose;
     this.quiet = quiet;
+    this.doDryRun = dryRun;
+  }
+
+  dryRun(...args) {
+    if (!this.quiet && this.doDryRun) {
+      console.log(...args);
+    }
   }
 
   log(...args) {

@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+// const puppeteer = require('puppeteer');
 const fs = require('fs');
 const Mustache = require('mustache');
 
@@ -18,37 +18,37 @@ const Logger = require('./lib/Logger');
 const NotesStore = require('./lib/NotesStore');
 
 let browser;
-let page;
-let pageData;
+// let page;
+// let pageData;
 
 const program = require('./lib/readCliParams')({
   PATH_URLS_FILE,
 });
 const logger = new Logger(program);
+logger.dryRun('Running in dry-run mode...');
+logger.dryRun(`Instructons file ${program.urls}`);
 
-if (program.dryRun) {
-  logger.log('Running in dry-run mode...');
-}
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
-const rawIntructions = new InstructionsStore({
-  pth: PATH_URLS_FILE,
+const rawInstructions = new InstructionsStore({
+  urls: program.urls,
   srcCleaner: require('./lib/lib').cleanseUrl,
 });
-rawIntructions.on('error', err => {
-  logger.error(`rawIntructions error: ${err}`);
+rawInstructions.on('error', err => {
+  logger.error(`rawInstructions error: ${err}`);
   process.exit(1);
 });
-rawIntructions.load();
+rawInstructions.load();
+
 const notes = new NotesStore();
 notes.on('error', err => {
   logger.error(`notes error: ${err}`);
 });
-rawIntructions.forEach((instruction, i) => {
+rawInstructions.forEach((instruction, i) => {
   const key = notes.create(instruction);
-  rawIntructions.update(i, { key });
+  rawInstructions.update(i, { key });
 });
-const instructionsQueue = generateQueue(rawIntructions.all());
-logger.info(rawIntructions.all(), instructionsQueue);
+logger.info(`${rawInstructions.length} raw instructions`);
+const instructionsQueue = generateQueue(rawInstructions.all());
 
 const notesTemp = {};
 
@@ -62,29 +62,30 @@ async function processQueue(queue) {
       break;
 
     case CMD_FETCH_FROM_PAGE:
-      if (!browser) {
-        browser = await puppeteer.launch();
-      }
-      page = await browser.newPage();
-      try {
-        await page.goto(instruction.payload.src);
-        logger.info('PAGE LOADED');
-        // page.on('console', msg =>
-        //   console.log('---------------------PAGE LOG:', msg.text()),
-        // );
-        pageData = await instruction.payload.processor({
-          browser,
-          page,
-        });
-        notesTemp[instruction.payload.key] = Object.assign(
-          notesTemp[instruction.payload.key],
-          pageData,
-        );
-      } catch (e) {
-        logger.error(`There was an error with ${instruction.payload.src}`);
-        logger.error(e);
-      }
       break;
+    // if (!browser) {
+    //   browser = await puppeteer.launch();
+    // }
+    // page = await browser.newPage();
+    // try {
+    //   await page.goto(instruction.payload.src);
+    //   logger.info('PAGE LOADED');
+    //   // page.on('console', msg =>
+    //   //   console.log('---------------------PAGE LOG:', msg.text()),
+    //   // );
+    //   pageData = await instruction.payload.processor({
+    //     browser,
+    //     page,
+    //   });
+    //   notesTemp[instruction.payload.key] = Object.assign(
+    //     notesTemp[instruction.payload.key],
+    //     pageData,
+    //   );
+    // } catch (e) {
+    //   logger.error(`There was an error with ${instruction.payload.src}`);
+    //   logger.error(e);
+    // }
+    // break;
 
     default:
       logger.error(`ERROR: unknown command ${instruction.cmd}`);
@@ -95,7 +96,7 @@ async function processQueue(queue) {
       await browser.close();
     }
     logger.log('finished process queue');
-    logger.info(notesTemp);
+    notes.log();
     writeNotes(notesTemp);
   } else {
     processQueue(queue);
@@ -115,7 +116,7 @@ function writeNotes(noteStore) {
         logger.divider();
         logger.info(rendered);
       } else {
-        fs.writeFileSync(saveTo, rendered, 'utf8');
+        // fs.writeFileSync(saveTo, rendered, 'utf8');
         logger.info(saveTo, note);
       }
       logger.divider();
@@ -125,7 +126,7 @@ function writeNotes(noteStore) {
   return 0;
 }
 
-// processFile(rawIntructions);
+// processFile(rawInstructions);
 
 // async function processFile(queue) {
 //   let { key, src, tags } = queue.shift();

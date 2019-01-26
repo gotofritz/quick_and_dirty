@@ -27,7 +27,7 @@ describe('Logger', () => {
 
   describe('when verbose', () => {
     beforeEach(() => {
-      sut = new Logger({ verbose: true });
+      sut = new Logger({ verbose: true, dryRun: Math.random() > 0.5 });
     });
 
     it('logs', () => {
@@ -79,9 +79,29 @@ describe('Logger', () => {
     });
   });
 
+  describe('when dryRun', () => {
+    beforeEach(() => {
+      sut = new Logger({ verbose: Math.random() > 0.5, dryRun: true });
+    });
+
+    it('dryRuns', () => {
+      sut.dryRun(LOG_MESSAGE);
+      expect(spies.log).toHaveBeenCalledWith(LOG_MESSAGE);
+    });
+
+    it('dryRun all arguments', () => {
+      sut.dryRun(INFO_MESSAGE, ERROR_MESSAGE, LOG_MESSAGE);
+      expect(spies.log).toHaveBeenCalledWith(
+        INFO_MESSAGE,
+        ERROR_MESSAGE,
+        LOG_MESSAGE,
+      );
+    });
+  });
+
   describe('when not verbose', () => {
     beforeEach(() => {
-      sut = new Logger({ verbose: false });
+      sut = new Logger({ verbose: false, dryRun: Math.random() > 0.5 });
     });
 
     it('does not info', () => {
@@ -107,11 +127,20 @@ describe('Logger', () => {
 
   describe('when quiet', () => {
     beforeEach(() => {
-      sut = new Logger({ quiet: true, verbose: Math.random() > 0.5 });
+      sut = new Logger({
+        quiet: true,
+        verbose: Math.random() > 0.5,
+        dryRun: true,
+      });
     });
 
     it('does not info', () => {
       sut.info(INFO_MESSAGE);
+      expect(spies.info).not.toHaveBeenCalled();
+    });
+
+    it('does not dryRun', () => {
+      sut.dryRun(INFO_MESSAGE);
       expect(spies.info).not.toHaveBeenCalled();
     });
 

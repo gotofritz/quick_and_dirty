@@ -1,6 +1,7 @@
 const YAML = require('yaml');
 const fs = require('fs');
 const path = require('path');
+const rimraf = require('rimraf');
 
 const NotesStore = require('../lib/NotesStore');
 
@@ -14,6 +15,7 @@ describe('NotesStore', () => {
   const NOTE_VALID = path.join(PTH_PREFIX, 'validNote.yml');
   const NOTE_INCOMPLETE = path.join(PTH_PREFIX, 'validButIncompleteNote.yml');
   const NOTE_INVALID = path.join(PTH_PREFIX, 'invalidNote.yml');
+  const FOLDER_PATH = path.join(process.cwd(), '.boostnote');
   let validKeys;
 
   beforeAll(() => {
@@ -145,5 +147,37 @@ describe('NotesStore', () => {
       });
       sut.create(noteWithNoSrc);
     });
+  });
+
+  describe('logs', () => {
+    beforeEach(() => {
+      rimraf.sync(path.join(FOLDER_PATH, '*'));
+      const logFiles = fs.readdirSync(FOLDER_PATH);
+      expect(logFiles).toHaveLength(0);
+      sut = new NotesStore();
+    });
+
+    // Rimraf doesn't run suncrhonously in hustky, so this will fail
+
+    // it('to a file', () => {
+    //   sut.create([validNote, validNote, validNote]);
+    //   // const expected = YAML.parse(validNote);
+    //   const noteData = sut.read();
+    //   expect(noteData).toHaveLength(3);
+    //   sut.log();
+
+    //   const key = 0;
+    //   const logFiles = fs.readdirSync(FOLDER_PATH);
+    //   const fileContents = fs.readFileSync(
+    //     path.join(FOLDER_PATH, logFiles[key]),
+    //     'utf8',
+    //   );
+    //   const notes = YAML.parse(fileContents);
+    //   console.log('-------------------------', notes);
+    //   expect(Object.keys(notes)).toHaveLength(3);
+    //   Object.keys(notes).forEach(k => {
+    //     expect(notes[k]).toMatchObject(validNote);
+    //   });
+    // });
   });
 });

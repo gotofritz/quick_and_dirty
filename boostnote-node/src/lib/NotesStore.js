@@ -1,6 +1,8 @@
 const EventEmitter = require('events');
 const uuid4 = require('uuid/v4');
 
+const { dumpInstructionsToFile, logsPath } = require('./lib');
+
 const ALLOWED_FIELDS = {
   created: new Date(0).toISOString(),
   updated: new Date().toISOString(),
@@ -17,9 +19,7 @@ class NotesStore extends EventEmitter {
   constructor() {
     super();
     this.notes = {};
-    this.validatorReference = Object.preventExtensions(
-      Object.assign({}, ALLOWED_FIELDS),
-    );
+    this.logsFile = logsPath('notes');
   }
 
   read() {
@@ -46,6 +46,10 @@ class NotesStore extends EventEmitter {
       keys.push(key);
     });
     return Array.isArray(records) ? keys : keys[0];
+  }
+
+  log() {
+    dumpInstructionsToFile(this.notes, this.logsFile);
   }
 }
 

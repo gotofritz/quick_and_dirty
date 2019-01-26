@@ -32,7 +32,7 @@ describe('InstructionsStore', () => {
     });
 
     it("emits an error object if it can't open config file", done => {
-      sut = new InstructionsStore({ pth: 'this does not exist' });
+      sut = new InstructionsStore({ urls: 'this does not exist' });
       sut.on('error', err => {
         expect(err).toBeDefined();
         done();
@@ -42,14 +42,14 @@ describe('InstructionsStore', () => {
 
     it('can load empty files', () => {
       sut = new InstructionsStore({
-        pth: URL_EMPTY,
+        urls: URL_EMPTY,
       }).load();
       expect(sut.all()).toEqual([]);
     });
 
     it('emits if YAML is invalid', done => {
       sut = new InstructionsStore({
-        pth: path.join(PTH_PREFIX, 'badYAML.yml'),
+        urls: path.join(PTH_PREFIX, 'badYAML.yml'),
       });
       sut.on('error', err => {
         expect(err).toBeDefined();
@@ -60,9 +60,23 @@ describe('InstructionsStore', () => {
 
     it('can load a file with a single url', () => {
       sut = new InstructionsStore({
-        pth: URL_SINGLE,
+        urls: URL_SINGLE,
       }).load();
       expect(sut.all()).toHaveLength(1);
+    });
+  });
+
+  describe('properties', () => {
+    beforeEach(
+      () =>
+        (sut = new InstructionsStore({
+          urls: URL_MANY,
+        }).load()),
+    );
+
+    it('has length', () => {
+      const instructions = sut.all();
+      expect(instructions).toHaveLength(sut.length);
     });
   });
 
@@ -70,7 +84,7 @@ describe('InstructionsStore', () => {
     beforeEach(
       () =>
         (sut = new InstructionsStore({
-          pth: URL_MANY,
+          urls: URL_MANY,
         }).load()),
     );
 
@@ -113,7 +127,7 @@ describe('InstructionsStore', () => {
 
     it("runs a url cleaning function on each instructions's src", () => {
       sut = new InstructionsStore({
-        pth: URL_MANY,
+        urls: URL_MANY,
         srcCleaner: src => src.substr(0, 5).replace(/./g, '*'),
       }).load();
       const instructions = sut.all();
@@ -131,17 +145,17 @@ describe('InstructionsStore', () => {
     it("to a folder that is created if it doesn't esist", () => {
       expect(fs.existsSync(FOLDER_PATH)).toBeFalse();
       sut = new InstructionsStore({
-        pth: URL_MANY,
+        urls: URL_MANY,
       }).load();
       expect(fs.existsSync(FOLDER_PATH)).toBeTrue();
     });
 
     it("with filename which starts with today's timestamp", () => {
       sut = new InstructionsStore({
-        pth: URL_MANY,
+        urls: URL_MANY,
       }).load();
       const logFiles = fs.readdirSync(FOLDER_PATH);
-      expect(logFiles).toHaveLength(1);
+      expect(logFiles).toHaveLength(2);
 
       // filename is something like "20190109T212517606Z-log.yml"
       // i.e., a ISO date with all the punctuation removed
@@ -161,7 +175,7 @@ describe('InstructionsStore', () => {
     beforeEach(
       () =>
         (sut = new InstructionsStore({
-          pth: URL_FEW,
+          urls: URL_FEW,
         }).load()),
     );
 
@@ -191,7 +205,7 @@ describe('InstructionsStore', () => {
     beforeEach(() => {
       rimraf.sync(FOLDER_PATH);
       sut = new InstructionsStore({
-        pth: URL_FEW,
+        urls: URL_FEW,
       }).load();
     });
 
@@ -242,8 +256,11 @@ describe('InstructionsStore', () => {
       sut.update(0, fields);
 
       const logFiles = fs.readdirSync(FOLDER_PATH);
-      expect(logFiles).toHaveLength(1);
-      const file = fs.readFileSync(path.join(FOLDER_PATH, logFiles[0]), 'utf8');
+      expect(logFiles).toHaveLength(2);
+      const file = fs.readFileSync(
+        path.join(FOLDER_PATH, logFiles[key]),
+        'utf8',
+      );
       const rawInstructions = YAML.parse(file);
       expect(rawInstructions[key]).toContainKeys(newKeys);
       for (let i = 1; i <= 3; i++) {
