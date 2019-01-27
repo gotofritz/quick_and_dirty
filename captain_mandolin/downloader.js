@@ -8,6 +8,7 @@ const youtubedl = require('youtube-dl');
 const mkdirp = require('mkdirp');
 const program = require('commander');
 const yaml = require('js-yaml');
+const { execSync } = require('child_process');
 
 const {
   defaultConfigPath,
@@ -282,6 +283,15 @@ function postprocessQueue(queue) {
     'utf8',
   );
   log(!program.quiet, 'generated postprocess file', PATH_POSTPROCESS);
+
+  try {
+    const result = execSync(`node ffmpeg-editor.js -c ${PATH_POSTPROCESS}`, {
+      cwd: __dirname,
+    });
+    log(!program.quiet, `run postr process command ${result}`);
+  } catch (err) {
+    log(true, `execSync fail ${err}`);
+  }
 }
 
 /**

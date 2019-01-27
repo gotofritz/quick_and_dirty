@@ -415,7 +415,6 @@ function getOutputsFromSections(instruction) {
     output.push(outputInstruction);
     previousEnd = thisEnd;
   }
-  normaliseOutputsInPlace(output, instruction.dest || config.dest);
   return output;
 }
 
@@ -604,7 +603,7 @@ async function processQueue(queue) {
   log(program.verbose, 'processQueue:', queue);
   if (queue.length === 0) {
     log(!program.quiet, 'DONE');
-    process.exit();
+    process.exit(0);
   }
 
   const command = queue.shift();
