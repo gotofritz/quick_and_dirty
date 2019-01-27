@@ -83,7 +83,7 @@ if (hasEnoughDataToWorkWith(config)) {
     userData.instructions.sort(
       (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0),
     );
-    CaptnM.writeYaml(DEFAULT_CONFIG, userData);
+    CaptnM.writeYaml(program.config, userData);
     CaptnM.log(!program.quiet, `Done - added dir ${program.add}`);
 
     // use script to move viles around
@@ -100,7 +100,7 @@ if (hasEnoughDataToWorkWith(config)) {
     } else {
       const copiedFiles = copyFiles(filesToCopy, config);
       updateUserDataInPlace(userData.instructions, copiedFiles);
-      CaptnM.writeYaml(DEFAULT_CONFIG, userData);
+      CaptnM.writeYaml(program.config, userData);
       CaptnM.log(!program.quiet, `Done - ${copiedFiles.length} files copied`);
     }
   }
