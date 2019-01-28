@@ -1,11 +1,14 @@
 // const puppeteer = require('puppeteer');
 const fs = require('fs');
 const Mustache = require('mustache');
+const rimraf = require('rimraf');
+const mkdirp = require('mkdirp');
 
 const {
   cleanPageContent,
   dataIsNotEmpty,
   generateQueue,
+  logsPath,
   newNotePath,
 } = require('./lib/lib');
 
@@ -26,7 +29,13 @@ const program = require('./lib/readCliParams')({
 });
 const logger = new Logger(program);
 logger.dryRun('Running in dry-run mode...');
-logger.dryRun(`Instructons file ${program.urls}`);
+logger.info(`Instructons file ${program.urls}`);
+if (program.clean) {
+  const logsDir = logsPath();
+  rimraf.sync(logsDir);
+  mkdirp(logsDir);
+  logger.log(`Emptying ${logsDir}`);
+}
 
 const noteTemplate = fs.readFileSync(TEMPLATE_FILE_PATH, 'utf8');
 const rawInstructions = new InstructionsStore({

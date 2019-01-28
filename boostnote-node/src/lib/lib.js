@@ -24,12 +24,16 @@ module.exports.imagePaths = (
   };
 };
 
-module.exports.logsPath = suffix =>
-  path.join(
-    process.cwd(),
-    '.boostnote',
-    new Date().toISOString().replace(/\W/g, '') + `-${suffix}.yml`,
-  );
+module.exports.logsPath = suffix => {
+  if (suffix) {
+    return path.join(
+      process.cwd(),
+      '.boostnote',
+      new Date().toISOString().replace(/\W/g, '') + `-${suffix}.yml`,
+    );
+  }
+  return path.join(process.cwd(), '.boostnote');
+};
 
 module.exports.markdownImageFromPath = destPath => {
   const parts = destPath
