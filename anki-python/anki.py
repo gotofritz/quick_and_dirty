@@ -2,17 +2,10 @@
 import argparse
 import markdown
 import re
-
-md = markdown.Markdown(output_format='html5')
-md_start_p = len('<p>')
-md_end_p = len('</p>')
-md_start_pre = len('<pre>')
-md_end_pre = len('</pre>')
-SEPARATOR = 2
-DEFAULT_TAGS = 'geeky '
+import yaml
 
 parser = argparse.ArgumentParser(description='Creates importable anki files')
-parser.add_argument('--fields', dest='fields', required=True, type=int,
+parser.add_argument('--fields', dest='fields', default=15, type=int,
                     help='How many total fields the card expects')
 parser.add_argument('--src', dest='src', required=True,
                     help='Text file to scan')
@@ -22,48 +15,58 @@ parser.add_argument('--tags', dest='tags', default='',
                     help='Tags to add to defaut (default: geeky')
 args = parser.parse_args()
 
-def write_card_to_file(the_card, the_file):
-  # don't write empty cards
-  should_write = any(bool(field) for field in the_card[:-1])
-  if should_write:
-    the_file.write("\t".join(the_card) + "\n")
-
-
-cards = []
-newlines = 0
-trigger_new_card = SEPARATOR - 1
-total_cards = 0
-card_pointer = 0
+DEFAULT_TAGS = 'geeky '
+FIELDS_QUESTION = 2
+FIELDS_ANSWERS = 12
 new_card_template = [''] * args.fields
 new_card_template.append(DEFAULT_TAGS + args.tags)
-new_card = new_card_template.copy()
+md = markdown.Markdown(output_format='html5')
+md_start_p = len('<p>')
+md_end_p = len('</p>')
 
+def write_card_to_file(the_card, the_file):
+  the_file.write("\t".join(the_card) + "\n")
+
+def process_normal_field(field):
+  # sadly markdown wraps everything in <p>...</p>
+  # we take the substring inside those
+  return md.convert(field)[md_start_p:-md_end_p]
+
+def process_code_field(field):
+  return "<pre>" + field.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "___") + "</pre>"
+
+cards_done = 0
 write_to = open(args.dest, 'w', encoding='utf-8')
-with  open(args.src) as read_from:
-  for line in read_from:
-    if (line == '\n'):
-      if (newlines >= trigger_new_card):
-        total_cards += 1
-        card_pointer = 0
-        write_card_to_file(new_card, write_to)
-        new_card = new_card_template.copy()
+for card_data in yaml.load(open(args.src)):
+  new_card = new_card_template.copy()
+
+  if 0 == len(card_data['question']):
+    continue
+
+  if 1 <= len(card_data['question']):
+    new_card[0] = process_normal_field(card_data['question'][0])
+  if 2 <= len(card_data['question']):
+    new_card[1] = process_code_field(card_data['question'][1])
+
+  for i in range(0, FIELDS_ANSWERS):
+    if i < len(card_data['answers']):
+      j = i + FIELDS_QUESTION
+      field = card_data['answers'][i]
+      if field[0:3] == '```':
+        new_card[j] = process_code_field(field)
       else:
-        card_pointer += 1
-      newlines += 1
-    else:
-      line = line.strip()
-      if re.match('<pre>', line):
-        line = md.convert(line)[md_start_pre:-md_end_pre]
-        line = "<pre>" + line.replace("<", "&lt;").replace(">", "&gt;").replace("___", "<br>") + "</pre>"
-      else:
-        # sadly markdown wraps everything in <p>...</p>
-        # we take the substring inside those
-        line = md.convert(line)[md_start_p:-md_end_p]
-      new_card[card_pointer] = line
-      card_pointer += 1
-      newlines = 0
-write_card_to_file(new_card, write_to)
-total_cards += 1
+        new_card[j] = process_normal_field(field)
+
+  if 'config' in card_data and 'noNumber' in card_data['config'] and card_data['config']['noNumber']:
+    new_card[-2] = 'x'
+
+  if 'tags' in card_data:
+    new_card[-1] += ' ' + ' '.join(card_data['tags'])
+
+  write_card_to_file(new_card, write_to)
+  cards_done += 1
 
 write_to.close()
-print("Done, {} cards".format(total_cards))
+
+print("Done {} cards".format(cards_done))
+exit(0)
