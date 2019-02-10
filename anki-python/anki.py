@@ -19,7 +19,7 @@ DEFAULT_TAGS = 'geeky '
 FIELDS_QUESTION = 2
 FIELDS_ANSWERS = 12
 new_card_template = [''] * args.fields
-new_card_template.append(DEFAULT_TAGS + args.tags)
+new_card_template.append(DEFAULT_TAGS)
 md = markdown.Markdown(output_format='html5')
 md_start_p = len('<p>')
 md_end_p = len('</p>')
@@ -62,6 +62,8 @@ for card_data in yaml.load(open(args.src)):
 
   if 'tags' in card_data:
     new_card[-1] += ' ' + ' '.join(card_data['tags'])
+  else:
+    new_card[-1] += ' ' + args.tags
 
   write_card_to_file(new_card, write_to)
   cards_done += 1
