@@ -139,13 +139,16 @@ function processQueue(queue, postQueue) {
     ].join('');
     filename = `${dest}/${basename}`;
 
-    let cmd = getPostprocessInstruction(basename, instruction.postprocess);
-    if (cmd) {
+    let postprocessInstruction = getPostprocessInstruction(
+      basename,
+      instruction.postprocess,
+    );
+    if (postprocessInstruction) {
       console.log(`FILENAME: [${filename}]`);
       postprocessing.push({
         src: filename,
         dest: path.join(config.postprocess, path.basename(dest)),
-        cmd,
+	...postprocessInstruction,
       });
     }
 
@@ -361,5 +364,18 @@ function normaliseInstruction(instruction = {}) {
 }
 
 function getPostprocessInstruction(basename, postprocess) {
-  return postprocess || (/\.mp4$/.test(basename) ? null : 'convert');
+  if (postprocess) {
+    // postprocess can be either an object
+    // { cmd: 'aaa',
+    //   a, b, ...
+    // }
+    if (postprocess.cmd) {
+      return postprocess;
+    }
+    // ... or a string
+    return {
+      cmd: postprocess,
+    };
+  }
+  return /\.mp4$/.test(basename) ? null : { cmd: 'convert' };
 }

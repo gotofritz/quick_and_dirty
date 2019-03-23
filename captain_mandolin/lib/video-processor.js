@@ -56,7 +56,9 @@ module.exports = {
     ].join(''),
 
   join: ({ src, dest }, { as = 'string' } = {}) => {
-    const params = [
+    const asString = as !== 'args';
+    let cmd = 'ffmpeg';
+    const args = [
       '-i',
       `"concat:${src.join('|')}"`,
       '-c',
@@ -65,7 +67,7 @@ module.exports = {
       'aac_adtstoasc',
       `"${dest}"`,
     ];
-    return formatted[as](params);
+    return asString ? `${cmd} ${args.join(' ')}` : { cmd, args };
   },
 
   duration: ({ src }, { as = 'string' } = {}) => {
