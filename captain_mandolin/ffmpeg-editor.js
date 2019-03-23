@@ -7,7 +7,6 @@ const LuxonDuration = require('luxon').Duration;
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const rimraf = require('rimraf');
 const { spawnSync, spawn } = require('child_process');
 const program = require('commander');
 
@@ -129,7 +128,9 @@ function normaliseInstruction(instruction, config) {
     instruction.dest = config.dest;
   }
   mkdirp(instruction.dest);
-  instruction.src = normaliseSrcToArray(instruction, config);
+  if (instruction.src) {
+    instruction.src = normaliseSrcToArray(instruction, config);
+  }
 
   switch (instruction.cmd) {
     case TYPE_SPLIT:
@@ -276,14 +277,27 @@ function generateExtractCommand({ src, dest, filename, sections = [] }) {
 function generateSplitCommand({
   src,
   dest,
-  sections: { backtrack, duration, filename = '{basename} # {i}', segments },
+  backtrack: backtrackDefault,
+  sections: {
+    backtrack,
+    duration,
+    filename = '{basename} # {i}',
+    segments,
+  } = {},
 }) {
   log(program.verbose, 'generateSplitCommand / src', src);
   log(program.verbose, 'generateSplitCommand / duration', duration);
   log(program.verbose, 'generateSplitCommand / backtrack', backtrack);
+  log(
+    program.verbose,
+    'generateSplitCommand / backtrackDefault',
+    backtrackDefault,
+  );
   log(program.verbose, 'generateSplitCommand / dest', dest);
   log(program.verbose, 'generateSplitCommand / filename', filename);
-  const backtrackDuration = backtrack ? asMilliseconds(backtrack) : 0;
+  const backtrackDuration = backtrack
+    ? asMilliseconds(backtrack)
+    : backtrackDefault ? asMilliseconds(backtrackDefault) : 0;
   const wholeVideoDuration = getVideoDuration(src) + backtrackDuration;
   const basename = path.basename(src, path.extname(src));
   let numberOfSegments;
@@ -521,47 +535,26 @@ function shouldConvertAndDest(outputInstruction) {
   };
 }
 
-function generateJoinInstructions({ instruction, tempVideos, lastSrc }) {
-  const commands = { tempVideos, commands: [] };
-
+function generateJoinInstructions({ src, filename, repeat, dest }) {
   // we don't know what to write, no point carrying on
-  if (!instruction.filename && !lastSrc) return commands;
-
-  // Q. what are we joining?
-  let src;
-  if (Array.isArray(instruction.src)) {
-    // A. whatever is specified in the instructions
-    src = instruction.src.map(current => tempVideos.get(current));
-  } else {
-    // A. nothing - no point carrying on
-    if (!tempVideos) return commands;
-    // A. everything that was specified in previous steps, in order
-    src = Array.from(tempVideos.values());
-  }
-  // after all that, we still have nothing to join
-  if (src.length === 0) return commands;
+  if (!filename) return;
+  if (!Array.isArray(src) || src.length === 0) return;
 
   // 'repeat' does just what you expect
-  if (instruction.repeat) {
-    src = [].concat(Array(instruction.repeat * src.length).fill(src));
+  if (repeat) {
+    src = [].concat(Array(repeat * src.length).fill(src));
   }
 
-  const dest = path.join(instruction.dest, instruction.filename || as(lastSrc));
-
   try {
-    rimraf.sync(dest);
-    return {
-      tempVideos,
-      commands: [
-        videoProcessor.join({
-          src,
-          dest,
-        }),
-      ],
-    };
+    return [
+      videoProcessor.join({
+        src,
+        dest: path.join(dest, filename),
+      }),
+    ];
   } catch (err) {
     logError(`Couldn't delete ${dest}`, err);
-    return commands;
+    return;
   }
 }
 

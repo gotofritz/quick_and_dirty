@@ -24,7 +24,7 @@ module.exports.getConfigOrDie = pth => {
   try {
     return yaml.safeLoad(fs.readFileSync(pth, 'utf8'));
   } catch (e) {
-    console.log(`Did not find or load a valid config from ${pth}`);
+    console.log(`Did not find or load a valid config from ${pth}`, e);
     process.exit(1);
   }
 };
