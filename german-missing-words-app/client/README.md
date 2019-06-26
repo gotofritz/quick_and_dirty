@@ -9,3 +9,5 @@ I am preparing for a language test, and one of the exercise is a chunk of text w
 - React (CRA) for the FE, straight out of the box, no addons
 - Python for scraping
 - Hapi for the REST API
+
+
