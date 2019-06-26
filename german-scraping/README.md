@@ -1,0 +1,1 @@
+A couple of scripts to scrape dictionary and translation sites to get German text
