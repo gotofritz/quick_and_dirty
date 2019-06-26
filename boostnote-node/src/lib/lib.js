@@ -5,24 +5,11 @@ const path = require('path');
 const crypto = require('crypto');
 const request = require('request');
 const YAML = require('yaml');
+const mkdirp = require('mkdirp');
 
-const { PATH_BOOSTNOTE } = require('./const');
-
-module.exports.loadInstructions = ({ pth }) => {
-  const file = fs.readFileSync(pth, 'utf8');
-  const instructions = YAML.parse(file);
-  return instructions.reduce((accumulator, instruction) => {
-    const { src, tags, ...rest } = instruction;
-    const srcs = [].concat(src);
-    return accumulator.concat(
-      srcs.map(s => ({
-        src: s,
-        tags,
-        ...rest,
-      })),
-    );
-  }, []);
-};
+const { PATH_BOOSTNOTE, FOLDER_KEY } = require('./const');
+const Instruction = require('./Instruction');
+const { CMD_CREATE, CMD_FETCH_FROM_PAGE } = require('./commands');
 
 // create an image filename the way boostnote does it
 module.exports.imagePaths = (
@@ -35,6 +22,17 @@ module.exports.imagePaths = (
     physical: `${root}/attachments/${noteAddress}/${imageFile}`,
     source: `:storage/${noteAddress}/${imageFile}`,
   };
+};
+
+module.exports.logsPath = suffix => {
+  if (suffix) {
+    return path.join(
+      process.cwd(),
+      '.boostnote',
+      new Date().toISOString().replace(/\W/g, '') + `-${suffix}.yml`,
+    );
+  }
+  return path.join(process.cwd(), '.boostnote');
 };
 
 module.exports.markdownImageFromPath = destPath => {
@@ -60,12 +58,10 @@ module.exports.getImage = ({ imageUrl, noteAddress }) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir);
   }
-  console.log(`Getting image ${imageUrl} and saving to ${destPath}...`);
   return new Promise((resolve, reject) =>
     request
       .get(imageUrl)
       .on('error', function(err) {
-        console.log('ERRRR', err);
         reject(err);
       })
       .pipe(fs.createWriteStream(destPath))
@@ -73,6 +69,15 @@ module.exports.getImage = ({ imageUrl, noteAddress }) => {
         return resolve(destPath);
       }),
   );
+};
+
+module.exports.dumpInstructionsToFile = (instructions, filePath) => {
+  if (!filePath) return;
+  if (instructions.length === 0) return;
+
+  createLogsDirIfNeeded(filePath);
+  const instructionsAsYAML = YAML.stringify(instructions);
+  fs.writeFileSync(filePath, instructionsAsYAML, 'utf8');
 };
 
 // ensure a data object hassome data into it
@@ -110,9 +115,11 @@ module.exports.getDataFromPage = (page, queries = []) => {
           // Because there is no easy way to pass functions to pageEValuate
           query.processFn
             .toString()
-            .replace(/^[^\{]+\{(.+)\}\s*$/s, '$1')
+            .replace(/^[^{]+\{(.+)\}\s*$/s, '$1')
             .trim()
-        : query.attr ? getAttr(query.attr) : getTextContent;
+        : query.attr
+        ? getAttr(query.attr)
+        : getTextContent;
       if (query.query) {
         query.query = [].concat(query.query);
       }
@@ -174,7 +181,9 @@ module.exports.pathinfo = pathinfo;
 module.exports.getPageProcessorStrategy = address => {
   const DEFAULT_STRATEGY = 'generic';
   // extracts 'youtube' from a youtube url, etc
-  let { hostnameFragments: [strategy] } = pathinfo(address);
+  let {
+    hostnameFragments: [strategy],
+  } = pathinfo(address);
   if (!pageProcessorStrategies[strategy]) {
     strategy = DEFAULT_STRATEGY;
   }
@@ -185,25 +194,41 @@ module.exports.getPageProcessorStrategy = address => {
   };
 };
 
-let fakenewNoteAddress = 0;
 // generates a path for a newly created file
-module.exports.newNoteAddress = () => {
-  let filename;
-  try {
-    filename = fs
-      .readFileSync('.debug', 'utf8')
-      .replace(/.$/, (fakenewNoteAddress + 1).toString(16));
-    fakenewNoteAddress += 1;
-  } catch (e) {}
-  if (!filename) {
-    filename = uuidv4();
-  }
-  return filename;
-};
+module.exports.newNoteAddress = () => uuidv4();
 
 // generates a path for a newly created file
 module.exports.newNotePath = (filename = '') => {
   return `${PATH_BOOSTNOTE}/notes/${filename}.cson`;
+};
+
+module.exports.generateQueue = rawInstructions => {
+  const queue = rawInstructions.reduce(
+    (accumulator, { key = uuidv4(), src, tags }) => {
+      let pageProcessor = module.exports.getPageProcessorStrategy(src);
+      src = pageProcessor.rewriteUrl(src);
+
+      let noteData = {
+        folder: FOLDER_KEY,
+        src,
+        tags: pageProcessor.consolidateTags(tags),
+        updated: new Date().toISOString(),
+        key,
+      };
+
+      accumulator.push(new Instruction(CMD_CREATE, noteData));
+      accumulator.push(
+        new Instruction(CMD_FETCH_FROM_PAGE, {
+          key,
+          src,
+          processor: pageProcessor.fetchData,
+        }),
+      );
+      return accumulator;
+    },
+    [],
+  );
+  return queue;
 };
 
 module.exports.cleanseUrl = url => {
@@ -219,11 +244,8 @@ const consolidateTags = (...tags) =>
   tags
     // make sure comma separate strings are turned into arrays
     .reduce((accumulator, current) => {
-      if (Array.isArray(current)) {
-        return accumulator.concat(current);
-      }
       if (current) {
-        return accumulator.concat(current.split(/\s*,\s*/));
+        return accumulator.concat(current);
       }
       return accumulator;
     }, [])
@@ -245,3 +267,12 @@ const pageProcessorStrategies = {
   codepen: require('./codepen'),
   reddit: require('./reddit'),
 };
+
+function createLogsDirIfNeeded(filePath) {
+  if (!filePath) return;
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    mkdirp.sync(dir);
+  }
+}

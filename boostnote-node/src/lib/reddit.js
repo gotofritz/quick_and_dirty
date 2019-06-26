@@ -54,7 +54,6 @@ module.exports = {
       },
     ]);
     const updatedData = {
-      ...noteData,
       ...additionalData,
       preamble,
     };

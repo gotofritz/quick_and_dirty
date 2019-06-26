@@ -40,7 +40,7 @@ const getAuthorDetails = async (browser, src) => {
   let author = '';
   try {
     author = await page.$eval('.vcard-fullname', el => el.textContent);
-  } catch (e) {}
+  } catch (e) {} // eslint-disable-line no-empty
   return author;
 };
 

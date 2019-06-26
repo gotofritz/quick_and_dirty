@@ -12,14 +12,16 @@ parser.add_argument('--src', dest='src', required=True,
 parser.add_argument('--dest', dest='dest', default='anki.txt',
                     help='Text file to write to')
 parser.add_argument('--tags', dest='tags', default='',
-                    help='Tags to add to defaut (default: geeky')
+                    help='Tags to add to defaut (default: geeky)')
+parser.add_argument('--debug', dest='debug', action='store_true',
+                    help='boolean')
 args = parser.parse_args()
 
 DEFAULT_TAGS = 'geeky '
 FIELDS_QUESTION = 2
 FIELDS_ANSWERS = 12
 new_card_template = [''] * args.fields
-new_card_template.append(DEFAULT_TAGS + args.tags)
+new_card_template.append(DEFAULT_TAGS)
 md = markdown.Markdown(output_format='html5')
 md_start_p = len('<p>')
 md_end_p = len('</p>')
@@ -29,8 +31,9 @@ def write_card_to_file(the_card, the_file):
 
 def process_normal_field(field):
   # sadly markdown wraps everything in <p>...</p>
-  # we take the substring inside those
-  return md.convert(field)[md_start_p:-md_end_p]
+  # we take the substring inside those.
+  # additionally VSC wraps in stupid newlines, so we get rid of those
+  return md.convert(field)[md_start_p:-md_end_p].replace("\n\s+", " ")
 
 def process_code_field(field):
   return "<pre>" + field.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "___") + "</pre>"
@@ -52,6 +55,8 @@ for card_data in yaml.load(open(args.src)):
     if i < len(card_data['answers']):
       j = i + FIELDS_QUESTION
       field = card_data['answers'][i]
+      if args.debug:
+        print(field)
       if field[0:3] == '```':
         new_card[j] = process_code_field(field)
       else:
@@ -62,6 +67,8 @@ for card_data in yaml.load(open(args.src)):
 
   if 'tags' in card_data:
     new_card[-1] += ' ' + ' '.join(card_data['tags'])
+  else:
+    new_card[-1] += ' ' + args.tags
 
   write_card_to_file(new_card, write_to)
   cards_done += 1
