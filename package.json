@@ -1,10 +1,11 @@
 {
   "name": "quick_and_dirty",
   "version": "1.0.0",
-  "description": "quick and dirty scripts =============== captain_mandolin/ = utilities to download, postprocess and manage videos and audio from youtube",
+  "description": "quick and dirty scripts",
   "main": "index.js",
   "dependencies": {
     "glob": "^7.1.2",
+    "he": "^1.2.0",
     "mustache": "2.3.0"
   },
   "devDependencies": {
