@@ -548,8 +548,8 @@ function generateJoinInstructions({ src, filename, repeat, dest }) {
   try {
     return [
       videoProcessor.join({
-	src,
-	dest: path.join(dest, filename),
+        src,
+        dest: path.join(dest, filename),
       }),
     ];
   } catch (err) {
