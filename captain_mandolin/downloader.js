@@ -148,7 +148,7 @@ function processQueue(queue, postQueue) {
       postprocessing.push({
         src: filename,
         dest: path.join(config.postprocess, path.basename(dest)),
-	...postprocessInstruction,
+        ...postprocessInstruction,
       });
     }
 
