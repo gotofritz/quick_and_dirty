@@ -9,6 +9,7 @@ const mustache = require('mustache');
 const PATH_TEMPLATES = 'templates';
 const SUFFIX = '.tmpl';
 let cards = [];
+let errors = [];
 
 class Anki {
   constructor() {
@@ -18,6 +19,11 @@ class Anki {
   // adds a card to the collection
   add(fields) {
     cards.push(fields);
+  }
+
+  // adds an original line of test to the errors collection
+  error(line) {
+    errors.push(line);
   }
 
   // template use {{mustache}} syntax to define fields
@@ -33,12 +39,21 @@ class Anki {
   }
 
   // writes whole list to a text file
-  write(pathToFile) {
+  async write(pathToFile) {
     const rendered = cards.map(card => mustache.render(this.template, card));
-    fsPromises
+    await fsPromises
       .writeFile(pathToFile, rendered.join('\n'), 'utf8')
       .then(() =>
         console.log(`Written ${rendered.length} records to ${pathToFile}`),
+      );
+  }
+
+  // writes whole list to a text file
+  async writeErrors(pathToFile) {
+    return await fsPromises
+      .writeFile(pathToFile, errors.join('\n'), 'utf8')
+      .then(() =>
+        console.log(`Written ${errors.length} errors to ${pathToFile}`),
       );
   }
 }

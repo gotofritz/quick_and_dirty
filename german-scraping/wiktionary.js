@@ -25,7 +25,7 @@
 const https = require('https');
 const fs = require('fs');
 
-const Anki = require('../anki/anki');
+const Anki = require('./lib/anki');
 
 const INPUT_FILE_PATH = __dirname + '/wiktionary_input.txt';
 const OUTPUT_FILE_PATH = __dirname + '/wiktionary_output.txt';
