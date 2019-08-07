@@ -4,7 +4,7 @@
   "description": "quick and dirty scripts",
   "main": "index.js",
   "dependencies": {
-    "glob": "^7.1.2",
+    "glob": "^7.1.4",
     "he": "^1.2.0",
     "mustache": "2.3.0"
   },

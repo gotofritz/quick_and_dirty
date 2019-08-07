@@ -28,19 +28,30 @@ class Anki {
 
   // template use {{mustache}} syntax to define fields
   async loadTemplate(ref) {
-    const raw = await fsPromises.readFile(
-      path.join(__dirname, PATH_TEMPLATES, ref.toLowerCase() + SUFFIX),
-      'utf8',
+    const templatePath = path.join(
+      __dirname,
+      PATH_TEMPLATES,
+      ref.toLowerCase() + SUFFIX,
     );
-    if (raw) {
-      this.template = raw;
-      mustache.parse(this.template);
+
+    const raw = await fsPromises
+      .readFile(templatePath, 'utf8')
+      .catch(err => console.log('err', err));
+
+    if (!raw) {
+      throw Error(`Could not load ${templatePath}`);
     }
+    this.template = raw;
+    mustache.parse(this.template);
   }
 
   // writes whole list to a text file
-  async write(pathToFile) {
+  async write(pathToFile, { randomise = false }) {
     const rendered = cards.map(card => mustache.render(this.template, card));
+    if (randomise) {
+      rendered.sort((a, b) => (a < 'j' ? -1 : 1));
+    }
+    console.log('""" RENDERED', rendered);
     await fsPromises
       .writeFile(pathToFile, rendered.join('\n'), 'utf8')
       .then(() =>
