@@ -53,7 +53,7 @@ const program = require('./lib/file-collector/config')({
 const DEFAULT_CONFIG_BAK = program.config.replace(/\.yml$/, '.yml.bak');
 
 const GLOB_SETTINGS = Object.freeze({ nodir: true });
-const EXTENSION_GLOB = 'mp4';
+const EXTENSION_GLOB = 'mp[4g]';
 
 let userData = CaptnM.getConfigOrDie(program.config);
 const config = Object.assign(
@@ -77,8 +77,8 @@ if (hasEnoughDataToWorkWith(config)) {
       userData.instructions,
       config,
     );
-    userData.instructions.sort(
-      (a, b) => (a.src > b.src ? 1 : a.src < b.src ? -1 : 0),
+    userData.instructions.sort((a, b) =>
+      a.src > b.src ? 1 : a.src < b.src ? -1 : 0,
     );
     CaptnM.writeYaml(program.config, userData);
     CaptnM.log(!program.quiet, `Done - added dir ${program.add}`);
@@ -195,9 +195,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
         );
         if (allFiles.length === 0) {
           CaptnM.logError(
-            `No files left in ${instruction.src} after applying ignore: ${
-              instruction.ignore
-            }`,
+            `No files left in ${instruction.src} after applying ignore: ${instruction.ignore}`,
           );
           return accumulator;
         }
@@ -238,7 +236,9 @@ function getListOfFilesToCopy(instructions, config = {}) {
         // the last one was deleted or renamed)
         const indexOfLast = instruction.next
           ? allFiles.indexOf(instruction.next) - 1
-          : instruction.last ? allFiles.indexOf(instruction.last) : -1;
+          : instruction.last
+          ? allFiles.indexOf(instruction.last)
+          : -1;
 
         // spread = like howMany, but instead of being next to each other they
         // will be evenly spread across list. So if you have 10 files, with
@@ -305,11 +305,14 @@ function getListOfFilesToCopy(instructions, config = {}) {
 }
 
 function normaliseCandidate(candidate, instruction, config) {
+  candidate.dest =
+    candidate.move && instruction.moveToWhenDone
+      ? path.join(instruction.moveToWhenDone, path.basename(candidate.src))
+      : path.join(
+          instruction.dest || config.dest,
+          path.basename(candidate.dest),
+        );
   candidate.src = CaptnM.normalisePath(candidate.src, config.srcRoot);
-  candidate.dest = path.join(
-    instruction.dest || config.dest,
-    path.basename(candidate.dest),
-  );
   return candidate;
 }
 
@@ -323,7 +326,11 @@ function copyFiles(filesToCopy, { verbose } = {}) {
     CaptnM.log(verbose, `copying from ${file.src} to ${file.dest}`);
     try {
       mkdirp.sync(path.dirname(file.dest));
-      fs.copyFileSync(file.src, file.dest);
+      if (file.move) {
+        fs.renameSync(file.src, file.dest);
+      } else {
+        fs.copyFileSync(file.src, file.dest);
+      }
     } catch (e) {
       CaptnM.logError(e);
       // we rely on the fact that once a forEach loop is initialised, the array
@@ -338,10 +345,14 @@ function copyFiles(filesToCopy, { verbose } = {}) {
 // once we know what files where actually copied, use that information to
 // update the settings for the next iteration
 function updateUserDataInPlace(instructions, copiedFiles = []) {
-  copiedFiles.filter(file => file.isLast).forEach(file => {
-    instructions[file.refToInstruction].last = file.src;
-    delete instructions[file.refToInstruction].next;
-  });
+  copiedFiles
+    .filter(file => file.isLast)
+    .forEach(file => {
+      if ('refToInstruction' in file) {
+        instructions[file.refToInstruction].last = file.src;
+        delete instructions[file.refToInstruction].next;
+      }
+    });
   return instructions;
 }
 
@@ -389,7 +400,6 @@ function getSimilarlyNamedVideos(
   { matchUpTo } = {},
 ) {
   const matcher = CaptnM.matcherFactory(matchUpTo);
-
   const similarlyNamed = similarTo.reduce((accumulator, current) => {
     const currentBasename = path.basename(current.src);
     const basenameMatch = matcher(currentBasename);
@@ -406,7 +416,9 @@ function getSimilarlyNamedVideos(
       .map(src => ({
         ...current,
         src: path.join(path.dirname(current.src), src),
-        dest: path.join(path.dirname(current.dest), src),
+        ...(current.dest && {
+          dest: path.join(path.dirname(current.dest), src),
+        }),
       }));
     return accumulator.concat(fileGroup);
   }, []);

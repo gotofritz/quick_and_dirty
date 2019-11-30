@@ -6,7 +6,8 @@
   "dependencies": {
     "glob": "^7.1.4",
     "he": "^1.2.0",
-    "mustache": "2.3.0"
+    "mustache": "2.3.0",
+    "prettier": "^1.19.1"
   },
   "devDependencies": {
     "babel-eslint": "8.2.2",
@@ -14,7 +15,6 @@
     "eslint-config-last": "0.0.5",
     "eslint-config-prettier": "2.9.0",
     "eslint-plugin-prettier": "2.6.0",
-    "prettier": "^1.18.2",
     "puppeteer": "1.6.2"
   },
   "scripts": {
