@@ -141,15 +141,18 @@ function normaliseInstruction(instruction, config) {
       break;
 
     case TYPE_CONVERT:
-      normalisedInstructions = createOneInstructionForEachSrc(instruction).map(
-        individualInstruction => generateDestFromSrc(individualInstruction),
+      normalisedInstructions = createOneInstructionForEachSrc(
+        instruction,
+      ).map(individualInstruction =>
+        generateDestFromSrc(individualInstruction),
       );
       break;
 
     case TYPE_MP3:
-      normalisedInstructions = createOneInstructionForEachSrc(instruction).map(
-        individualInstruction =>
-          generateDestFromSrc(individualInstruction, DEFAULT_AUDIO_EXT),
+      normalisedInstructions = createOneInstructionForEachSrc(
+        instruction,
+      ).map(individualInstruction =>
+        generateDestFromSrc(individualInstruction, DEFAULT_AUDIO_EXT),
       );
       break;
 
@@ -213,7 +216,7 @@ function createOneInstructionForEachSrc(instruction) {
   // we had put aside earlier
   return src.map(individualSrc => ({
     src: individualSrc,
-    ...instructionDefaults,
+    ...JSON.parse(JSON.stringify(instructionDefaults)),
   }));
 }
 
@@ -297,7 +300,9 @@ function generateSplitCommand({
   log(program.verbose, 'generateSplitCommand / filename', filename);
   const backtrackDuration = backtrack
     ? asMilliseconds(backtrack)
-    : backtrackDefault ? asMilliseconds(backtrackDefault) : 0;
+    : backtrackDefault
+    ? asMilliseconds(backtrackDefault)
+    : 0;
   const wholeVideoDuration = getVideoDuration(src) + backtrackDuration;
   const basename = path.basename(src, path.extname(src));
   let numberOfSegments;
@@ -571,12 +576,12 @@ function getStart(currentOutput, endOfLastSplit) {
       ? // if start is provided, use it
         LuxonDuration.fromObject(currentOutput.start)
       : // if there is an end and a duration, work it out from those
-        'end' in currentOutput && 'duration' in currentOutput
-        ? LuxonDuration.fromObject(currentOutput.end).minus(
-            LuxonDuration.fromObject(currentOutput.duration),
-          )
-        : // if not, use the commands start value from the last iteration (0 at first)
-          endOfLastSplit || LuxonDuration.fromMillis(0);
+      'end' in currentOutput && 'duration' in currentOutput
+      ? LuxonDuration.fromObject(currentOutput.end).minus(
+          LuxonDuration.fromObject(currentOutput.duration),
+        )
+      : // if not, use the commands start value from the last iteration (0 at first)
+        endOfLastSplit || LuxonDuration.fromMillis(0);
   return start;
 }
 
@@ -586,9 +591,9 @@ function getDuration(current, start) {
       ? // if provided, use it
         LuxonDuration.fromObject(current.duration)
       : 'end' in current
-        ? // if there is an end, work it out from start and end
-          LuxonDuration.fromObject(current.end).minus(start)
-        : null;
+      ? // if there is an end, work it out from start and end
+        LuxonDuration.fromObject(current.end).minus(start)
+      : null;
   return duration;
 }
 

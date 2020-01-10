@@ -169,6 +169,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
         `/**/*.${extension}`,
       );
       let allFiles = glob.sync(globPath, GLOB_SETTINGS);
+      CaptnM.log(program.verbose, allFiles);
       if (allFiles.length === 0) {
         CaptnM.logError(`No files found with ${globPath}`);
         return accumulator;
