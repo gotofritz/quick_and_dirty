@@ -4,6 +4,8 @@ import markdown
 import re
 import yaml
 
+yaml.reader.Reader.NON_PRINTABLE = re.compile(
+    u'[^\x09\x0A\x0D\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]')
 parser = argparse.ArgumentParser(description='Creates importable anki files')
 parser.add_argument('--fields', dest='fields', default=15, type=int,
                     help='How many total fields the card expects')
