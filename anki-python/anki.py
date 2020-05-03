@@ -42,7 +42,7 @@ def process_code_field(field):
 
 cards_done = 0
 write_to = open(args.dest, 'w', encoding='utf-8')
-for card_data in yaml.load(open(args.src)):
+for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
   new_card = new_card_template.copy()
 
   if 0 == len(card_data['question']):
