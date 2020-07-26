@@ -87,6 +87,7 @@ if (hasEnoughDataToWorkWith(config)) {
   } else {
     // placeholder awaiting further work
     require('./lib/file-collector/rules/random')(fileCollectorEmitter);
+    require('./lib/file-collector/rules/moveWhenDone')(fileCollectorEmitter);
     require('./lib/file-collector/rules/oneLevelWide')(fileCollectorEmitter);
 
     const filesToCopy = getListOfFilesToCopy(userData.instructions, config);
@@ -260,7 +261,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
             allFiles[
               (indexOfLast + Math.round(runningCount)) % allFiles.length
             ];
-          const dest = handleBasenameDigits(src, {
+          const dest = CaptnM.handleBasenameDigits(src, {
             removeInitialDigits,
           });
           filesToAdd.push({
@@ -320,11 +321,12 @@ function normaliseCandidate(candidate, instruction, config) {
 // takes the array of file.src / file.dest produced by getListOfFilesToCopy and
 // does the actual copying. Returns a new array, with the same list but without
 // the files that caused an error
-function copyFiles(filesToCopy, { verbose } = {}) {
-  CaptnM.log(!program.quiet, 'Copying files...');
+function copyFiles(filesToCopy, { verbose, quiet } = {}) {
+  CaptnM.log(!quiet, 'Copying files...');
   const arrayCopy = Array.from(filesToCopy);
   arrayCopy.forEach((file, i, arr) => {
     CaptnM.log(verbose, `copying from ${file.src} to ${file.dest}`);
+    CaptnM.log(!verbose && !quiet, `${file.dest}`);
     try {
       mkdirp.sync(path.dirname(file.dest));
       if (file.move) {
@@ -343,7 +345,7 @@ function copyFiles(filesToCopy, { verbose } = {}) {
   return arrayCopy;
 }
 
-// once we know what files where actually copied, use that information to
+// once we know what files were actually copied, use that information to
 // update the settings for the next iteration
 function updateUserDataInPlace(instructions, copiedFiles = []) {
   copiedFiles
@@ -432,16 +434,10 @@ function hasEnoughDataToWorkWith(data = {}) {
   return data.srcRoot && data.dest;
 }
 
-function handleBasenameDigits(src, { removeInitialDigits } = {}) {
-  return removeInitialDigits
-    ? path.basename(src).replace(/^([A-Z]{2,6} )?\d+ -? ?/i, '$1')
-    : path.basename(src);
-}
-
 function pushFixed(fixed, instructionConfig) {
   // [].concat forces an array
   return [].concat(fixed).map(src => {
-    const destBasename = handleBasenameDigits(src, instructionConfig);
+    const destBasename = CaptnM.handleBasenameDigits(src, instructionConfig);
     return {
       // setting isLast to false ensures the config will not be updated
       // for this entry, so ti will be there until manually changed

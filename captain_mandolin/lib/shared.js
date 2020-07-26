@@ -78,3 +78,9 @@ module.exports.saveToFile = (name, content) => {
     'utf8',
   );
 };
+
+module.exports.handleBasenameDigits = (src, { removeInitialDigits } = {}) => {
+  return removeInitialDigits
+    ? path.basename(src).replace(/^([A-Z]{2,6} )?\d+ -? ?/i, '$1')
+    : path.basename(src);
+};

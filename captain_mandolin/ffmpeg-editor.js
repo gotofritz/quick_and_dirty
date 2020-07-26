@@ -42,7 +42,8 @@ const REGISTERED_CMDS = Object.freeze([
   TYPE_MP3,
   TYPE_EXTRACT,
 ]);
-const asMilliseconds = obj => LuxonDuration.fromObject(obj).as('milliseconds');
+const asMilliseconds = (obj) =>
+  LuxonDuration.fromObject(obj).as('milliseconds');
 
 program
   .version('0.0.1')
@@ -143,7 +144,7 @@ function normaliseInstruction(instruction, config) {
     case TYPE_CONVERT:
       normalisedInstructions = createOneInstructionForEachSrc(
         instruction,
-      ).map(individualInstruction =>
+      ).map((individualInstruction) =>
         generateDestFromSrc(individualInstruction),
       );
       break;
@@ -151,7 +152,7 @@ function normaliseInstruction(instruction, config) {
     case TYPE_MP3:
       normalisedInstructions = createOneInstructionForEachSrc(
         instruction,
-      ).map(individualInstruction =>
+      ).map((individualInstruction) =>
         generateDestFromSrc(individualInstruction, DEFAULT_AUDIO_EXT),
       );
       break;
@@ -183,7 +184,7 @@ function normaliseSrcToArray(instruction, config) {
       // Force an array
       .concat(instruction.src)
       // ensures each entries in array are absolute paths
-      .map(individualSrc => normalisePath(individualSrc, config.srcRoot))
+      .map((individualSrc) => normalisePath(individualSrc, config.srcRoot))
       // if individualSrc is a dir, resolves into a list of files
       .reduce((accumulator, individualSrc) => {
         try {
@@ -191,8 +192,8 @@ function normaliseSrcToArray(instruction, config) {
             accumulator.push(
               ...fs
                 .readdirSync(individualSrc)
-                .filter(file => file[0] !== '.')
-                .map(file => path.join(individualSrc, file)),
+                .filter((file) => file[0] !== '.')
+                .map((file) => path.join(individualSrc, file)),
             );
           } else {
             accumulator.push(individualSrc);
@@ -214,7 +215,7 @@ function createOneInstructionForEachSrc(instruction) {
   let { src, ...instructionDefaults } = instruction;
   // creates an instruction for every entry in src, using the information
   // we had put aside earlier
-  return src.map(individualSrc => ({
+  return src.map((individualSrc) => ({
     src: individualSrc,
     ...JSON.parse(JSON.stringify(instructionDefaults)),
   }));
@@ -304,6 +305,11 @@ function generateSplitCommand({
     ? asMilliseconds(backtrackDefault)
     : 0;
   const wholeVideoDuration = getVideoDuration(src) + backtrackDuration;
+  log(
+    program.verbose,
+    'generateSplitCommand / wholeVideoDuration',
+    wholeVideoDuration,
+  );
   const basename = path.basename(src, path.extname(src));
   let numberOfSegments;
   let actualSegmentDuration;
@@ -351,7 +357,7 @@ function getProcessingInputStrategy(key) {
   const strategy = {
     [TYPE_JOIN]: generateJoinInstructions,
     [TYPE_SPLIT]: generateSplitInstructions,
-    [TYPE_UNKNOWN]: which => logError(`UNKNOWN INSTRUCTION TYPE ${which}`),
+    [TYPE_UNKNOWN]: (which) => logError(`UNKNOWN INSTRUCTION TYPE ${which}`),
   };
   if (key in strategy) {
     return strategy[key];
@@ -441,6 +447,7 @@ function getVideoDuration(src) {
   const timingCommandArgs = videoProcessor.duration({ src }, { as: 'args' });
   const spawnProcess = spawnSync('ffmpeg', timingCommandArgs);
   const processErrorOutput = spawnProcess.stderr.toString().trim();
+  log(program.verbose, 'generateSplitCommand / ERR', processErrorOutput);
   let dateTimeObj = {};
   let durationMatches = /Duration: (\d\d):(\d\d):(\d\d).(\d{1,3})/.exec(
     processErrorOutput,
@@ -453,7 +460,7 @@ function getVideoDuration(src) {
     dateTimeObj.minutes,
     dateTimeObj.seconds,
     dateTimeObj.milliseconds,
-  ] = durationMatches.map(m => Number(m));
+  ] = durationMatches.map((m) => Number(m));
   return asMilliseconds(dateTimeObj);
 }
 
