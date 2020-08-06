@@ -1,4 +1,5 @@
 const { EVENT_FILELIST_WAS_GENERATED } = require('../../types');
+const CaptnM = require('../../shared');
 
 // macro
 const add = (addTo, src, instruction) => {
@@ -6,7 +7,7 @@ const add = (addTo, src, instruction) => {
     refToInstruction: instruction.refToInstruction,
     isLast: false,
     src,
-    dest: src,
+    dest: CaptnM.handleBasenameDigits(src, instruction),
   });
   if (instruction.moveToWhenDone) {
     addTo.push({
@@ -27,6 +28,9 @@ module.exports = fileCollectorEmitter => {
         // TODO do we actually have to return anything?
         return { instruction, filesToAdd };
 
+      if (instruction.removeInitialDigits !== false) {
+        instruction.removeInitialDigits = true;
+      }
       let howMany = (instruction.howMany = instruction.howMany || 1);
 
       let added = 0;
