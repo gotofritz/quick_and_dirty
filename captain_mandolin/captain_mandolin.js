@@ -187,20 +187,18 @@ function getListOfFilesToCopy(instructions, config = {}) {
       }));
 
       // ignore = regexp for file(s) not to be included in search
-      if (instruction.ignore) {
-        instruction.ignore = [].concat(instruction.ignore);
-        const ignoreRegexes = instruction.ignore.map(
-          ignore => new RegExp(ignore),
+      const defaultIgnores = ['/_[^/]+(/[^/]+)?$'];
+      const ignoreRegexes = (instruction.ignore || [])
+        .concat(defaultIgnores)
+        .map(ignore => new RegExp(ignore, 'i'));
+      allFiles = allFiles.filter(
+        file => !ignoreRegexes.some(re => re.test(file)),
+      );
+      if (allFiles.length === 0) {
+        CaptnM.logError(
+          `No files left in ${instruction.src} after applying ignore: ${instruction.ignore}`,
         );
-        allFiles = allFiles.filter(
-          file => !ignoreRegexes.some(re => re.test(file)),
-        );
-        if (allFiles.length === 0) {
-          CaptnM.logError(
-            `No files left in ${instruction.src} after applying ignore: ${instruction.ignore}`,
-          );
-          return accumulator;
-        }
+        return accumulator;
       }
 
       // breadth = go across subfolder instead of drilling down each. Note that
