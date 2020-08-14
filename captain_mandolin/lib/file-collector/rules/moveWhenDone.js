@@ -25,7 +25,9 @@ module.exports = fileCollectorEmitter => {
     EVENT_FILELIST_WAS_GENERATED,
     ({ instruction, allFiles, filesToAdd }) => {
       const shouldBailEarly =
-        !instruction.moveToWhenDone || allFiles.length === 0;
+        instruction.random ||
+        !instruction.moveToWhenDone ||
+        allFiles.length === 0;
       if (shouldBailEarly) return { instruction, filesToAdd };
 
       if (instruction.removeInitialDigits !== false) {
