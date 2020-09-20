@@ -126,17 +126,20 @@ function processQueue(queue, postQueue) {
   video.on('info', infoFromServer => {
     log(
       program.verbose,
-      `[youtube-dl::INFO] queue: ${queue.length} postprocess: ${
-        postQueue.length
-      }`,
+      `[youtube-dl::INFO] queue: ${queue.length} postprocess: ${postQueue.length}`,
     );
     size = infoFromServer.size;
-    basename = [
-      prepend,
-      instruction.ordinal,
-      PREPEND_SEPARATOR,
-      infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
-    ].join('');
+    basename = instruction.filename
+      ? instruction.filename
+          .replace(/\{i\}/g, instruction.ordinal)
+          .replace(/\{prepend\}/g, prepend) +
+        path.extname(infoFromServer._filename)
+      : [
+          prepend,
+          instruction.ordinal,
+          PREPEND_SEPARATOR,
+          infoFromServer._filename.replace(/-[^ ].{10}\./, '.'),
+        ].join('');
     filename = `${dest}/${basename}`;
 
     let postprocessInstruction = getPostprocessInstruction(
@@ -173,9 +176,7 @@ function processQueue(queue, postQueue) {
       logError(`${TAB}COULD NOT DOWNLOAD: ${id}///`);
     } else {
       logError(
-        `${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${
-          instruction.attempts
-        }`,
+        `${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${instruction.attempts}`,
       );
       queue.push(instruction);
     }
@@ -189,7 +190,7 @@ function processQueue(queue, postQueue) {
     if (process.stdout && process.stdout.cursorTo) {
       pos += chunk.length;
       if (size) {
-        let percent = (pos / size * 100).toFixed(2);
+        let percent = ((pos / size) * 100).toFixed(2);
         process.stdout.cursorTo(5);
         process.stdout.clearLine(5);
         process.stdout.write(percent + '%');
@@ -213,9 +214,7 @@ function processQueue(queue, postQueue) {
     video.on('next', playlist => {
       log(
         program.verbose,
-        `[youtube-dl::NEXT] queue: ${queue.length} postprocess: ${
-          postQueue.length
-        }`,
+        `[youtube-dl::NEXT] queue: ${queue.length} postprocess: ${postQueue.length}`,
       );
       const howManyDigitsNeeded = getDigitsNeeded(playlist.length);
       const playlistInstructions = playlist.map(({ id }, i) => {
@@ -235,9 +234,7 @@ function processQueue(queue, postQueue) {
     log(true, '');
     log(
       program.verbose,
-      `[youtube-dl::END] queue: ${queue.length} postprocess: ${
-        postQueue.length
-      }`,
+      `[youtube-dl::END] queue: ${queue.length} postprocess: ${postQueue.length}`,
     );
     if (!isYoutubePlaylist(instruction)) {
       processQueue(queue, postQueue);
@@ -329,17 +326,19 @@ function asYoutubeInstructions(
     codes = Array.of(codes);
   }
 
-  return codes.filter(code => code).map((code, i) => {
-    const isClip = isYoutubeVideo(code);
-    return {
-      code,
-      service: 'youtube',
-      type: isClip ? 'video' : 'playlist',
-      dest,
-      ordinal: i,
-      ...rest,
-    };
-  });
+  return codes
+    .filter(code => code)
+    .map((code, i) => {
+      const isClip = isYoutubeVideo(code);
+      return {
+        code,
+        service: 'youtube',
+        type: isClip ? 'video' : 'playlist',
+        dest,
+        ordinal: i,
+        ...rest,
+      };
+    });
 }
 
 // youtube is the default, although the library in theory can download
