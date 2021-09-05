@@ -169,14 +169,16 @@ function processQueue(queue, postQueue) {
 
   // Errors are not fatal. We retry a few times
   video.on('error', id => {
-    if (
-      instruction.attempts >= MAX_ATTEMPTS ||
-      /copyright|unavailable/i.test(id)
-    ) {
-      logError(`${TAB}COULD NOT DOWNLOAD: ${id}///`);
+    if (instruction.attempts >= MAX_ATTEMPTS) {
+      logError(`
+${TAB} TOO MANY ATTEMPTS: ${id}///`);
+    } else if (/copyright|unavailable/i.test(id)) {
+      logError(`
+${TAB}copyright or unavailable: ${id}///`);
     } else {
       logError(
-        `${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${instruction.attempts}`,
+        `
+${TAB}COULD NOT DOWNLOAD: ${id} - will try again ${instruction.attempts}`,
       );
       queue.push(instruction);
     }

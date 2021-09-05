@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 /**
  * script that takes some instructions in yaml format for splitting movie
  * files into sections using ffmpeg
@@ -27,6 +28,7 @@ const {
   TYPE_UNKNOWN,
   TYPE_EXTRACT,
   TYPE_MP3,
+  TYPE_MP4,
   DEFAULT_VIDEO_EXT,
   DEFAULT_AUDIO_EXT,
 } = require('./lib/types');
@@ -40,10 +42,10 @@ const REGISTERED_CMDS = Object.freeze([
   TYPE_SPLIT,
   TYPE_CONVERT,
   TYPE_MP3,
+  TYPE_MP4,
   TYPE_EXTRACT,
 ]);
-const asMilliseconds = (obj) =>
-  LuxonDuration.fromObject(obj).as('milliseconds');
+const asMilliseconds = obj => LuxonDuration.fromObject(obj).as('milliseconds');
 
 program
   .version('0.0.1')
@@ -71,28 +73,32 @@ log(program.verbose, config);
 if (hasEnoughDataToWorkWith(config, userData)) {
   log(!program.quiet, 'Decoding instructions...');
 
-  const instructions = userData.instructions
-    .filter(rejectUnknownCmd)
+  const filteredInstructions = userData.instructions.filter(rejectUnknownCmd);
 
-    // YAML -> normalised instructions ->
-    // The config can define as input a list of files and / or directories, but
-    // in the end for some commands we want to have one instruction for each
-    // input file, for others one instruction for each output file. Each with
-    // its minimum required params, either from the instruction itself or from
-    // defaults
-    .reduce((accumulator, originalInstruction) => {
+  // YAML -> normalised instructions ->
+  // The config can define as input a list of files and / or directories, but
+  // in the end for some commands we want to have one instruction for each
+  // input file, for others one instruction for each output file. Each with
+  // its minimum required params, either from the instruction itself or from
+  // defaults
+  const instructions = filteredInstructions.reduce(
+    (accumulator, originalInstruction) => {
       accumulator = accumulator.concat(
         normaliseInstruction(originalInstruction, config),
       );
       return accumulator;
-    }, []);
+    },
+    [],
+  );
   log(program.verbose, 'Normalised instructions', instructions);
 
   // YAML -> normalised instructions -> ffmepg commands
-  const cliCommands = instructions.reduce((accumulator, instruction) => {
-    accumulator = accumulator.concat(generateCommand(instruction));
-    return accumulator;
-  }, []);
+  const cliCommands = instructions
+    .reduce((accumulator, instruction) => {
+      accumulator = accumulator.concat(generateCommand(instruction));
+      return accumulator;
+    }, [])
+    .filter(x => x);
   log(program.verbose, 'cliCommands', cliCommands);
 
   if (program.dryRun) {
@@ -144,16 +150,19 @@ function normaliseInstruction(instruction, config) {
     case TYPE_CONVERT:
       normalisedInstructions = createOneInstructionForEachSrc(
         instruction,
-      ).map((individualInstruction) =>
+      ).map(individualInstruction =>
         generateDestFromSrc(individualInstruction),
       );
       break;
 
     case TYPE_MP3:
+    case TYPE_MP4:
+      const suffix =
+        instruction.cmd === TYPE_MP3 ? DEFAULT_AUDIO_EXT : DEFAULT_VIDEO_EXT;
       normalisedInstructions = createOneInstructionForEachSrc(
         instruction,
-      ).map((individualInstruction) =>
-        generateDestFromSrc(individualInstruction, DEFAULT_AUDIO_EXT),
+      ).map(individualInstruction =>
+        generateDestFromSrc(individualInstruction, suffix),
       );
       break;
 
@@ -184,7 +193,7 @@ function normaliseSrcToArray(instruction, config) {
       // Force an array
       .concat(instruction.src)
       // ensures each entries in array are absolute paths
-      .map((individualSrc) => normalisePath(individualSrc, config.srcRoot))
+      .map(individualSrc => normalisePath(individualSrc, config.srcRoot))
       // if individualSrc is a dir, resolves into a list of files
       .reduce((accumulator, individualSrc) => {
         try {
@@ -192,8 +201,8 @@ function normaliseSrcToArray(instruction, config) {
             accumulator.push(
               ...fs
                 .readdirSync(individualSrc)
-                .filter((file) => file[0] !== '.')
-                .map((file) => path.join(individualSrc, file)),
+                .filter(file => file[0] !== '.')
+                .map(file => path.join(individualSrc, file)),
             );
           } else {
             accumulator.push(individualSrc);
@@ -207,7 +216,7 @@ function normaliseSrcToArray(instruction, config) {
 }
 
 function normaliseJoinInstruction(instruction) {
-  return instruction;
+  return [].concat(instruction);
 }
 
 function createOneInstructionForEachSrc(instruction) {
@@ -215,7 +224,7 @@ function createOneInstructionForEachSrc(instruction) {
   let { src, ...instructionDefaults } = instruction;
   // creates an instruction for every entry in src, using the information
   // we had put aside earlier
-  return src.map((individualSrc) => ({
+  return src.map(individualSrc => ({
     src: individualSrc,
     ...JSON.parse(JSON.stringify(instructionDefaults)),
   }));
@@ -227,6 +236,7 @@ function generateCommand(instruction) {
     [TYPE_SPLIT]: generateSplitCommand,
     [TYPE_CONVERT]: generateConvertCommand,
     [TYPE_MP3]: generateMp3Command,
+    [TYPE_MP4]: generateMp4Command,
     [TYPE_EXTRACT]: generateExtractCommand,
     [TYPE_UNKNOWN]: () => logError(`UNKNOWN INSTRUCTION TYPE`),
   };
@@ -235,6 +245,13 @@ function generateCommand(instruction) {
 
 function generateMp3Command({ src, dest } = {}) {
   return videoProcessor.mp3({
+    src,
+    dest,
+  });
+}
+
+function generateMp4Command({ src, dest } = {}) {
+  return videoProcessor.mp4({
     src,
     dest,
   });
@@ -357,7 +374,7 @@ function getProcessingInputStrategy(key) {
   const strategy = {
     [TYPE_JOIN]: generateJoinInstructions,
     [TYPE_SPLIT]: generateSplitInstructions,
-    [TYPE_UNKNOWN]: (which) => logError(`UNKNOWN INSTRUCTION TYPE ${which}`),
+    [TYPE_UNKNOWN]: which => logError(`UNKNOWN INSTRUCTION TYPE ${which}`),
   };
   if (key in strategy) {
     return strategy[key];
@@ -460,7 +477,7 @@ function getVideoDuration(src) {
     dateTimeObj.minutes,
     dateTimeObj.seconds,
     dateTimeObj.milliseconds,
-  ] = durationMatches.map((m) => Number(m));
+  ] = durationMatches.map(m => Number(m));
   return asMilliseconds(dateTimeObj);
 }
 
@@ -558,14 +575,12 @@ function generateJoinInstructions({ src, filename, repeat, dest }) {
   }
 
   try {
-    return [
-      videoProcessor.join({
-        src,
-        dest: path.join(dest, filename),
-      }),
-    ];
+    return videoProcessor.join({
+      src,
+      dest: path.join(dest, filename),
+    });
   } catch (err) {
-    logError(`Couldn't delete ${dest}`, err);
+    logError(`Couldn't join ${dest}`, err);
     return;
   }
 }
@@ -613,6 +628,10 @@ async function processQueue(queue) {
 
   const command = queue.shift();
   log(!program.quiet, command);
+  if (!command) {
+    logError('Empty command');
+    return processQueue(queue);
+  }
   const child = spawn(command.cmd, command.args || []);
   child.on('exit', () => {
     processQueue(queue);
@@ -633,6 +652,7 @@ async function processQueue(queue) {
       log(program.verbose, `----- postprocessing Error: ${errorBuffer}`);
     }
   }
+  return;
 }
 
 // Handbrake is very noisy; not all errors are fatal. This function tries to

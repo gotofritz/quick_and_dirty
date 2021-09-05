@@ -3,6 +3,7 @@ module.exports = {
   TYPE_JOIN: 'join',
   TYPE_CONVERT: 'convert',
   TYPE_MP3: 'mp3',
+  TYPE_MP4: 'mp4',
   TYPE_EXTRACT: 'extract',
   TYPE_UNKNOWN: '?',
 

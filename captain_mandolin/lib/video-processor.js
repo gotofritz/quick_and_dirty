@@ -1,4 +1,5 @@
 const LuxonDuration = require('luxon').Duration;
+const path = require('path');
 
 const formatted = {
   string: params => `ffmpeg ${params.join(' ')}`,
@@ -55,7 +56,9 @@ module.exports = {
       `-f mpegts "${dest}"`,
     ].join(''),
 
-  join: ({ src, dest }, { as = 'string' } = {}) => {
+  // did this work once? because it doesn't now, evern if you copy the commnd to
+  // the CLI
+  joinWhichDoesntWork: ({ src, dest }, { as = 'args' } = {}) => {
     const asString = as !== 'args';
     let cmd = 'ffmpeg';
     const args = [
@@ -68,6 +71,47 @@ module.exports = {
       `"${dest}"`,
     ];
     return asString ? `${cmd} ${args.join(' ')}` : { cmd, args };
+  },
+
+  join: ({ src, dest }, { as = 'args' } = {}) => {
+    const asString = as !== 'args';
+    let commands = [];
+    const INTERMEDIATE = path.resolve('intermedidate');
+    for (let i = 0; i < src.length; i += 1) {
+      let cmd = 'ffmpeg';
+      let args = [
+        '-i',
+        `${src[i]}`,
+        '-y',
+        '-c',
+        'copy',
+        '-bsf:v',
+        'h264_mp4toannexb',
+        '-f',
+        'mpegts',
+        `${INTERMEDIATE + i}.ts`,
+      ];
+      commands.push(asString ? `${cmd} ${args.join(' ')}` : { cmd, args });
+    }
+    if (commands.length) {
+      let cmd = 'ffmpeg';
+      let args = [
+        '-i',
+        `concat:${commands.map((_, i) => `${INTERMEDIATE + i}.ts`).join('|')}`,
+        '-c',
+        'copy',
+        '-bsf:a',
+        'aac_adtstoasc',
+        `${dest}`,
+      ];
+      let cmd2 = 'rm';
+      let args2 = commands.map((_, i) => `${INTERMEDIATE + i}.ts`);
+      commands.push(asString ? `${cmd} ${args.join(' ')}` : { cmd, args });
+      commands.push(
+        asString ? `${cmd2} ${args2.join(' ')}` : { cmd: cmd2, args: args2 },
+      );
+    }
+    return commands;
   },
 
   duration: ({ src }, { as = 'string' } = {}) => {
