@@ -18,28 +18,28 @@ const add = (addTo, src, instruction) => {
   }
 };
 
-// Adds the first N files from allFiles to filesToAdd and use
-// moveToWhenDone attribute to move files
+// Adds N files picked at random from from allFiles to filesToAdd. If there is a
+// moveToWhenDone attribute moves files there
 module.exports = fileCollectorEmitter => {
   fileCollectorEmitter.on(
     EVENT_FILELIST_WAS_GENERATED,
     ({ instruction, allFiles, filesToAdd }) => {
-      const shouldBailEarly =
-        instruction.random ||
-        instruction.reverse ||
-        !instruction.moveToWhenDone ||
-        allFiles.length === 0;
-      if (shouldBailEarly) return { instruction, filesToAdd };
+      if (!instruction.reverse)
+        // TODO do we actually have to return anything?
+        return { instruction, filesToAdd };
 
       if (instruction.removeInitialDigits !== false) {
         instruction.removeInitialDigits = true;
       }
       let howMany = (instruction.howMany = instruction.howMany || 1);
-      howMany = Math.min(howMany, allFiles.length);
+      let added = 0;
 
-      for (let added = 0; added < howMany; added += 1) {
-        add(filesToAdd, allFiles[added], instruction);
+      // gets the file it needs
+      for (let i = allFiles.length - 1; added < howMany; i -= 1, added += 1) {
+        const src = allFiles[i];
+        add(filesToAdd, src, instruction);
       }
+
       return {
         instruction,
         filesToAdd,

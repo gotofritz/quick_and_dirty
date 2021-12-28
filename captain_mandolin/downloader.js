@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const youtubedl = require('youtube-dl');
+const youtubedl = require('youtube-dl-exec');
 const mkdirp = require('mkdirp');
 const program = require('commander');
 const yaml = require('js-yaml');

@@ -83,10 +83,11 @@ if (hasEnoughDataToWorkWith(config)) {
     CaptnM.writeYaml(program.config, userData);
     CaptnM.log(!program.quiet, `Done - added dir ${program.add}`);
 
-    // use script to move viles around
+    // use script to move files around
   } else {
     // placeholder awaiting further work
     require('./lib/file-collector/rules/random')(fileCollectorEmitter);
+    require('./lib/file-collector/rules/reverse')(fileCollectorEmitter);
     require('./lib/file-collector/rules/moveWhenDone')(fileCollectorEmitter);
     require('./lib/file-collector/rules/oneLevelWide')(fileCollectorEmitter);
 
@@ -94,7 +95,11 @@ if (hasEnoughDataToWorkWith(config)) {
     if (program.dryRun) {
       CaptnM.log(!program.quiet, filesToCopy);
       updateUserDataInPlace(userData.instructions, filesToCopy);
-      CaptnM.log(program.verbose, userData);
+      CaptnM.log(
+        program.verbose,
+        `----------------- ${program.config}
+${JSON.stringify(userData, null, 2)}`,
+      );
     } else {
       const copiedFiles = copyFiles(filesToCopy, config);
       updateUserDataInPlace(userData.instructions, copiedFiles);
@@ -134,8 +139,13 @@ function addInstruction(pth, instructions, { srcRoot = '' } = {}) {
   return copyOfInstructions;
 }
 
-// processes the instruction and decides what that means in terms of which
-// files need to be copied where. It generates an array with resolved paths
+/**
+ * processes the instruction and decides what that means in terms of which
+ * files need to be copied where. It generates an array with resolved paths
+ * @param {*} instructions
+ * @param {*} config
+ * @returns
+ */
 function getListOfFilesToCopy(instructions, config = {}) {
   const { extension = EXTENSION_GLOB } = config;
 
@@ -292,6 +302,10 @@ function getListOfFilesToCopy(instructions, config = {}) {
         filesToAdd.map(candidate =>
           normaliseCandidate(candidate, instruction, config),
         ),
+      );
+
+      instruction.lastTime = Array.from(
+        new Set(filesToAdd.map(obj => obj.src)),
       );
 
       // isLast decides whether the file will be the one written as

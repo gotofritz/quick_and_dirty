@@ -60,7 +60,12 @@ module.exports.normalisePath = (pth, dirname) => {
   return path.join(dirname, pth);
 };
 
-// writes YAML into file
+/**
+ * Does it synchronously
+ * @param {string} pth where it is written
+ * @param {object} settings what is written
+ * @returns
+ */
 module.exports.writeYaml = (pth, settings) => {
   fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
   return settings;

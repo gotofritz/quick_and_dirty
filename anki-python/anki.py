@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(description="Creates importable anki files")
 parser.add_argument(
     "--fields",
     dest="fields",
-    default=15,
+    default=17,
     type=int,
     help="How many total fields the card expects",
 )
