@@ -7,9 +7,26 @@ import yaml
 DEFAULT_TAGS = "geeky "
 FIELDS_QUESTION = 2
 FIELDS_ANSWERS = 12
+CONFIG_FIELDS = ["memoryJourney", "answerFirst", "noNumber"]
+MEMORY_JOURNEYS = {
+    "AKQ": "AKQA",
+    "BRE": "Brera",
+    "BRI": "Brixton",
+    "DEN": "Denns",
+    "FLA": "Fla",
+    "GOO": "Goodge St",
+    "KIT": "Kitchen",
+    "MAI": "Mainini",
+    "MIN": "Minna-Flake",
+    "OLD": "Old St",
+    "PET": "Petrella",
+    "PRO": "pro!vision",
+    "UCL": "UCL",
+    "WEL": "Wellenbad",
+}
 
 yaml.reader.Reader.NON_PRINTABLE = re.compile(
-    u"[^\x09\x0A\x0D\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]"
+    "[^\x09\x0A\x0D\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]"
 )
 parser = argparse.ArgumentParser(description="Creates importable anki files")
 parser.add_argument(
@@ -78,7 +95,7 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
     for i in range(0, FIELDS_ANSWERS):
         if i < len(card_data["answers"]):
             j = i + FIELDS_QUESTION
-            field = card_data["answers"][i]
+            field = str(card_data["answers"][i])
             if args.debug:
                 print(field)
             if field[0:3] == "```":
@@ -86,12 +103,20 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
             else:
                 new_card[j] = process_normal_field(field)
 
-    if (
-        "config" in card_data
-        and "noNumber" in card_data["config"]
-        and card_data["config"]["noNumber"]
-    ):
-        new_card[-2] = "x"
+    if "config" in card_data:
+        for offset, config_key in enumerate(CONFIG_FIELDS):
+            print(
+                f"config_key: {config_key}, found: {(config_key in card_data['config'])}, value: {card_data['config'].get(config_key)}"
+            )
+            if config_key in card_data["config"]:
+                config_value = card_data["config"][config_key]
+                if config_key == "memoryJourney":
+                    if config_value not in MEMORY_JOURNEYS.keys():
+                        raise Exception(f"Unrecognised memory journey: {config_value}")
+                    config_value = MEMORY_JOURNEYS[config_value]
+                else:
+                    config_value = "x" if config_value else ""
+                new_card[-(2 + offset)] = config_value
 
     if "tags" in card_data:
         new_card[-1] += " " + " ".join(card_data["tags"])
