@@ -57,7 +57,8 @@ md_end_p = len("</p>")
 
 
 def write_card_to_file(the_card, the_file):
-    the_file.write("\t".join(the_card) + "\n")
+    card_as_string = "\t".join(the_card)
+    the_file.write(card_as_string + "\n")
 
 
 def process_normal_field(field):
@@ -105,9 +106,6 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
 
     if "config" in card_data:
         for offset, config_key in enumerate(CONFIG_FIELDS):
-            print(
-                f"config_key: {config_key}, found: {(config_key in card_data['config'])}, value: {card_data['config'].get(config_key)}"
-            )
             if config_key in card_data["config"]:
                 config_value = card_data["config"][config_key]
                 if config_key == "memoryJourney":
@@ -125,6 +123,12 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
     cards_done += 1
 
 write_to.close()
+
+with open(args.dest, encoding="utf-8") as txt:
+    exported_file = txt.read()
+    print("\033[?7l")
+    print(re.sub(r"\t", "➡️", exported_file))
+    print("\033[?7h")
 
 print("Done {} cards".format(cards_done))
 exit(0)
