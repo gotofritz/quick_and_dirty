@@ -22,6 +22,7 @@ MEMORY_JOURNEYS = {
     "PET": "Petrella",
     "PRO": "pro!vision",
     "UCL": "UCL",
+    "WAY": "Wayfair",
     "WEL": "Wellenbad",
 }
 
