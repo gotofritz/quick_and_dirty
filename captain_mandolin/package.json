@@ -19,7 +19,7 @@
   "dependencies": {
     "commander": "2.14.1",
     "glob": "^7.1.6",
-    "js-yaml": "3.8.4",
+    "js-yaml": "3.13.1",
     "luxon": "0.5.5",
     "minimist": "^1.2.5",
     "mkdirp": "^0.5.5",
