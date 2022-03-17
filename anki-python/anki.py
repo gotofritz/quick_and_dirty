@@ -106,6 +106,9 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
                 new_card[j] = process_normal_field(field)
 
     if "config" in card_data:
+        # I often get this wrong in the data
+        if type(card_data["config"]) == list:
+            card_data["config"] = card_data["config"].pop(0)
         for offset, config_key in enumerate(CONFIG_FIELDS):
             if config_key in card_data["config"]:
                 config_value = card_data["config"][config_key]
