@@ -21,7 +21,7 @@
     "glob": "^7.1.6",
     "js-yaml": "3.13.1",
     "luxon": "0.5.5",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.6",
     "mkdirp": "^0.5.5",
     "rimraf": "2.6.1",
     "youtube-dl-exec": "^2.0.2"
