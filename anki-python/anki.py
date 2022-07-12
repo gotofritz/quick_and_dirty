@@ -13,7 +13,6 @@ MEMORY_JOURNEYS = {
     "BRE": "Brera",
     "BRI": "Brixton",
     "DEN": "Denns",
-    "FLA": "Fla",
     "GOO": "Goodge St",
     "KIT": "Kitchen",
     "MAI": "Mainini",
