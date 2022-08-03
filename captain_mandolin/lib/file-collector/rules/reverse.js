@@ -3,6 +3,8 @@ const CaptnM = require('../../shared');
 
 // macro
 const add = (addTo, src, instruction) => {
+  if (!src) return;
+
   addTo.push({
     refToInstruction: instruction.refToInstruction,
     isLast: false,

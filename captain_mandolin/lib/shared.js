@@ -67,8 +67,15 @@ module.exports.normalisePath = (pth, dirname) => {
  * @returns
  */
 module.exports.writeYaml = (pth, settings) => {
-  fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
-  return settings;
+  const updatedSettings = {
+    ...settings,
+    instructions: settings.instructions.map(inst => ({
+      ...inst,
+      disabled: false
+    }))
+  }
+  fs.writeFileSync(pth, yaml.safeDump(updatedSettings, { lineWidth: -1 }), 'utf8');
+  return updatedSettings;
 };
 
 module.exports.mustacheLite = (template, data, padding = 2) =>
