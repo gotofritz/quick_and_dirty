@@ -8,12 +8,12 @@ from bs4 import BeautifulSoup
 
 H3_CSS_ATTRIBUTES = [
     "padding: 0",
-    "margin: 0",
+    "margin: 0.25rem 0 0 0",
     "border: 0",
     "outline: 0",
     "font-size: 1.462em",
     # "font-family: Lora, Trebuchet MS,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Tahoma,sans-serif",
-    "line-height: 1.2",
+    "line-height: 1.1",
     "letter-spacing: -0.2px",
 ]
 P_CSS_ATTRIBUTES = [
@@ -93,6 +93,11 @@ def main(path_to_file: str):
         for tag in soup.find_all("h3"):
             tag["style"] = "; ".join(H3_CSS_ATTRIBUTES)
         for tag in soup.find_all("p"):
+            tag["style"] = "; ".join(P_CSS_ATTRIBUTES)
+            tag.name = "div"
+        for tag in soup.find_all("ol"):
+            tag.name = "span"
+        for tag in soup.find_all("li"):
             tag["style"] = "; ".join(P_CSS_ATTRIBUTES)
             tag.name = "div"
 
