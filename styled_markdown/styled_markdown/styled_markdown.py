@@ -88,13 +88,15 @@ def main(path_to_file: str):
     source_text = open(source_path).read()
 
     try:
-        output_html = markdown(source_text)
+        output_html = markdown(source_text, extensions=["pymdownx.tilde"])
         soup = BeautifulSoup(output_html, "html.parser")
         for tag in soup.find_all("h3"):
             tag["style"] = "; ".join(H3_CSS_ATTRIBUTES)
         for tag in soup.find_all("p"):
             tag["style"] = "; ".join(P_CSS_ATTRIBUTES)
             tag.name = "div"
+        for tag in soup.find_all("del"):
+            tag.name = "strike"
 
         target_path = Path(f"./{source_path.stem}.html")
         # print(soup.prettify())
