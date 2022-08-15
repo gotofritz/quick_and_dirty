@@ -2,6 +2,7 @@
 from html import escape
 from html.parser import HTMLParser
 import typer
+import re
 from pathlib import Path
 from markdown import markdown
 from bs4 import BeautifulSoup
@@ -102,7 +103,9 @@ def main(path_to_file: str):
         # print(soup.prettify())
         parser = MyHTMLParser()
         parser.feed(str(soup))
-        print(parser.get_parsed_string())
+        dirty_string = parser.get_parsed_string()
+        cleaned_string = re.sub(r"\n([!?,.;])", r"\1", dirty_string)
+        print(cleaned_string)
     except Exception as exc:
         print(exc)
         typer.Exit(3)
