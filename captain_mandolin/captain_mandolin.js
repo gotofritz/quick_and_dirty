@@ -68,7 +68,10 @@ const config = Object.assign(
 const fileCollectorEmitter = require('./lib/file-collector/emitter');
 
 if (hasEnoughDataToWorkWith(config)) {
-  CaptnM.writeYaml(DEFAULT_CONFIG_BAK, userData);
+  CaptnM.writeYaml(DEFAULT_CONFIG_BAK, {
+    ...userData,
+    _config: { ...userData._config, resetDisabled: false },
+  });
 
   // use script to add a directory to the config
   if (program.add) {
@@ -123,7 +126,7 @@ function addInstruction(pth, instructions, { srcRoot = '' } = {}) {
       : dir.substr(srcRoot.length);
   const instruction = isFile ? { src, next: pth } : { src };
   const alreadyThereAt = copyOfInstructions.findIndex(
-    instruction => instruction.src === dir,
+    (instruction) => instruction.src === dir,
   );
   if (alreadyThereAt > -1) {
     CaptnM.log(
@@ -186,23 +189,20 @@ function getListOfFilesToCopy(instructions, config = {}) {
         return accumulator;
       }
 
-      ({
-        instruction,
-        allFiles,
-        filesToAdd,
-      } = fileCollectorEmitter.potentialFilesWereFound({
-        instruction,
-        allFiles,
-        filesToAdd,
-      }));
+      ({ instruction, allFiles, filesToAdd } =
+        fileCollectorEmitter.potentialFilesWereFound({
+          instruction,
+          allFiles,
+          filesToAdd,
+        }));
 
       // ignore = regexp for file(s) not to be included in search
       const defaultIgnores = ['/_[^/]+(/[^/]+)?$'];
       const ignoreRegexes = (instruction.ignore || [])
         .concat(defaultIgnores)
-        .map(ignore => new RegExp(ignore, 'i'));
+        .map((ignore) => new RegExp(ignore, 'i'));
       allFiles = allFiles.filter(
-        file => !ignoreRegexes.some(re => re.test(file)),
+        (file) => !ignoreRegexes.some((re) => re.test(file)),
       );
       if (allFiles.length === 0) {
         CaptnM.logError(
@@ -299,13 +299,13 @@ function getListOfFilesToCopy(instructions, config = {}) {
       }
 
       accumulator = accumulator.concat(
-        filesToAdd.map(candidate =>
+        filesToAdd.map((candidate) =>
           normaliseCandidate(candidate, instruction, config),
         ),
       );
 
       instruction.lastTime = Array.from(
-        new Set(filesToAdd.map(obj => obj.src)),
+        new Set(filesToAdd.map((obj) => obj.src)),
       );
 
       // isLast decides whether the file will be the one written as
@@ -361,8 +361,8 @@ function copyFiles(filesToCopy, { verbose, quiet } = {}) {
 // update the settings for the next iteration
 function updateUserDataInPlace(instructions, copiedFiles = []) {
   copiedFiles
-    .filter(file => file.isLast)
-    .forEach(file => {
+    .filter((file) => file.isLast)
+    .forEach((file) => {
       if ('refToInstruction' in file) {
         instructions[file.refToInstruction].last = file.src;
         delete instructions[file.refToInstruction].next;
@@ -420,15 +420,15 @@ function getSimilarlyNamedVideos(
     const basenameMatch = matcher(currentBasename);
     if (!basenameMatch) return accumulator;
 
-    const isBasenameEqual = b =>
+    const isBasenameEqual = (b) =>
       b.substr(0, basenameMatch.length) === basenameMatch;
 
     const fileGroup = oneOfTheseVideos
-      .map(fullpath => path.basename(fullpath))
-      .filter(basename => {
+      .map((fullpath) => path.basename(fullpath))
+      .filter((basename) => {
         return basename !== currentBasename && isBasenameEqual(basename);
       })
-      .map(src => ({
+      .map((src) => ({
         ...current,
         src: path.join(path.dirname(current.src), src),
         ...(current.dest && {
@@ -448,7 +448,7 @@ function hasEnoughDataToWorkWith(data = {}) {
 
 function pushFixed(fixed, instructionConfig) {
   // [].concat forces an array
-  return [].concat(fixed).map(src => {
+  return [].concat(fixed).map((src) => {
     const destBasename = CaptnM.handleBasenameDigits(src, instructionConfig);
     return {
       // setting isLast to false ensures the config will not be updated
