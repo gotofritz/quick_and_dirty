@@ -24,7 +24,7 @@ const {
 class FileCollectorEmitter extends EventEmitter {
   constructor() {
     super();
-    this.on('error', err => console.log('FileCollectorEmitter ERROR', err));
+    this.on('error', (err) => console.log('FileCollectorEmitter ERROR', err));
   }
 
   fileListWasGenerated({
@@ -32,7 +32,7 @@ class FileCollectorEmitter extends EventEmitter {
     allFiles = [],
     filesToAdd = [],
   } = {}) {
-    // all plugins will respons to this, but in order, no concurrency issues.
+    // all plugins will respond to this, but in order, no concurrency issues.
     // They will also modify instruction and filesToAdd
     this.emit(EVENT_FILELIST_WAS_GENERATED, {
       instruction,
@@ -45,10 +45,10 @@ class FileCollectorEmitter extends EventEmitter {
 
   potentialFilesWereFound({
     instruction = {},
-    allFiles = [1111],
+    allFiles = [],
     filesToAdd = [],
   } = {}) {
-    // all plugins will respons to this, but in order, no concurrency issues.
+    // all plugins will respond to this, but in order, no concurrency issues.
     // They will also modify instruction and filesToAdd
     this.emit(EVENT_POTENTIAL_FILES_WERE_FOUND, {
       instruction,

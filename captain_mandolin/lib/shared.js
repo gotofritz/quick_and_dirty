@@ -17,7 +17,7 @@ module.exports.defaultConfigPath = (pth = module.parent.filename) =>
   );
 
 // loads YAML or exits program
-module.exports.getConfigOrDie = pth => {
+module.exports.getConfigOrDie = (pth) => {
   if (!path.isAbsolute(pth)) {
     pth = path.join(process.cwd(), pth);
   }
@@ -30,7 +30,7 @@ module.exports.getConfigOrDie = pth => {
 };
 
 // how many digits needed to represent a number
-module.exports.getDigitsNeeded = forNumber => {
+module.exports.getDigitsNeeded = (forNumber) => {
   return Math.ceil(Math.log10(forNumber + 1));
 };
 
@@ -47,9 +47,9 @@ module.exports.logError = (...args) => {
 };
 
 // creates a function that can match the beginning of a path with a seed one
-module.exports.matcherFactory = matchUpTo => {
+module.exports.matcherFactory = (matchUpTo) => {
   const matchUpToRE = new RegExp(`^(.+)${matchUpTo}`);
-  return pth => (pth.match(matchUpToRE) || [undefined, pth])[1].trim();
+  return (pth) => (pth.match(matchUpToRE) || [undefined, pth])[1].trim();
 };
 
 // ensures path is absolite
@@ -67,8 +67,21 @@ module.exports.normalisePath = (pth, dirname) => {
  * @returns
  */
 module.exports.writeYaml = (pth, settings) => {
-  fs.writeFileSync(pth, yaml.safeDump(settings, { lineWidth: -1 }), 'utf8');
-  return settings;
+  const updatedSettings = {
+    ...settings,
+    instructions: settings._config.resetDisabled
+      ? settings.instructions.map((inst) => ({
+          ...inst,
+          disabled: false,
+        }))
+      : settings.instructions.slice(0),
+  };
+  fs.writeFileSync(
+    pth,
+    yaml.safeDump(updatedSettings, { lineWidth: -1 }),
+    'utf8',
+  );
+  return updatedSettings;
 };
 
 module.exports.mustacheLite = (template, data, padding = 2) =>
