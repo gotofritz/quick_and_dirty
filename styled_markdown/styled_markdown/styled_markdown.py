@@ -2,6 +2,7 @@
 from html import escape
 from html.parser import HTMLParser
 import typer
+import re
 from pathlib import Path
 from markdown import markdown
 from bs4 import BeautifulSoup
@@ -88,13 +89,15 @@ def main(path_to_file: str):
     source_text = open(source_path).read()
 
     try:
-        output_html = markdown(source_text)
+        output_html = markdown(source_text, extensions=["pymdownx.tilde"])
         soup = BeautifulSoup(output_html, "html.parser")
         for tag in soup.find_all("h3"):
             tag["style"] = "; ".join(H3_CSS_ATTRIBUTES)
         for tag in soup.find_all("p"):
             tag["style"] = "; ".join(P_CSS_ATTRIBUTES)
             tag.name = "div"
+        for tag in soup.find_all("del"):
+            tag.name = "strike"
         for tag in soup.find_all("ol"):
             tag.name = "span"
         for tag in soup.find_all("li"):
@@ -105,7 +108,9 @@ def main(path_to_file: str):
         # print(soup.prettify())
         parser = MyHTMLParser()
         parser.feed(str(soup))
-        print(parser.get_parsed_string())
+        dirty_string = parser.get_parsed_string()
+        cleaned_string = re.sub(r"\n([!?,.;])", r"\1", dirty_string)
+        print(cleaned_string)
     except Exception as exc:
         print(exc)
         typer.Exit(3)
