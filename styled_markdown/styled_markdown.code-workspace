@@ -1,12 +1,12 @@
 {
   "folders": [
-	{
-		"path": "."
-	},
-	{
-		"path": "../../../Dropbox/_TRANSFER/hulver"
-	}
-],
+    {
+      "path": "."
+    },
+    {
+      "path": "../../../Dropbox/_TRANSFER/hulver"
+    }
+  ],
   "settings": {
     "peacock.color": "#215732",
     "workbench.colorCustomizations": {
@@ -29,6 +29,6 @@
       "titleBar.inactiveForeground": "#e7e7e799",
       "commandCenter.border": "#e7e7e799"
     },
-    "cSpell.words": ["theaair", "theair"]
+    "cSpell.words": ["diii", "Insta", "theaair", "theair", "Zucks"]
   }
 }
