@@ -91,6 +91,9 @@ def main(path_to_file: str):
     try:
         output_html = markdown(source_text, extensions=["pymdownx.tilde"])
         soup = BeautifulSoup(output_html, "html.parser")
+
+        for linebreak in soup.find_all("br"):
+            linebreak.name = "br"
         for tag in soup.find_all("h3"):
             tag["style"] = "; ".join(H3_CSS_ATTRIBUTES)
         for tag in soup.find_all("p"):
@@ -109,7 +112,8 @@ def main(path_to_file: str):
         parser = MyHTMLParser()
         parser.feed(str(soup))
         dirty_string = parser.get_parsed_string()
-        cleaned_string = re.sub(r"\n([!?,.;])", r"\1", dirty_string)
+        dirty_string = re.sub(r"\n([!?,.;])", r"\1", dirty_string)
+        cleaned_string = re.sub(r"<br></br>", r"<br/>", dirty_string)
         print(cleaned_string)
     except Exception as exc:
         print(exc)
