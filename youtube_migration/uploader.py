@@ -13,6 +13,7 @@ COL_STATUS = "Status"
 COL_PLAYLIST_ID = "Playlist ID"
 LABEL_DONE = "done"
 LABEL_404 = "videoNotFound"
+LABEL_BLANK = ""
 LABEL_QUOTA_EXCEEDED = "quotaExceeded"
 CLIENT_SECRETS_FILE = "client_secret.json"
 
@@ -48,6 +49,67 @@ def with_timestamp(stem: str) -> str:
     return dt_string + "_" + stem
 
 
+def video_is_already_in_playlist(client, video_id: str, playlist_id: str):
+    try:
+        print(f"-> Searching whether {video_id} is already in {playlist_id}")
+        response = (
+            client.playlistItems()
+            .list(
+                part="snippet, contentDetails",
+                playlistId=playlist_id,
+                videoId=video_id,
+            )
+            .execute()
+        )
+        if len(response["items"]) > 0:
+            print("... yes it is, doing next")
+            return (True, LABEL_DONE)
+    except HttpError as e:
+        if e.error_details[0]["reason"] == "videoNotFound":  # type: ignore
+            print(f">>>> Are you sure about this video? ID not found {video_id}")
+        else:
+            print(
+                ">>>> ERROR LOOKING FOR VIDEO IN PLAYLIST"
+                f"{e.error_details[0]['message']}"
+            )  # type: ignore
+        return (True, e.error_details[0]["reason"])
+    return (False, None)
+
+
+def add_another_video_to_playlist(client, video_id: str, playlist_id: str):
+    try:
+        print(f"-> Adding {video_id} to {playlist_id}")
+        response = (
+            client.playlistItems()
+            .insert(
+                part="snippet, contentDetails",
+                body={
+                    "contentDetails": {"videoId": video_id},
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {
+                            "kind": "youtube#video",
+                            "videoId": video_id,
+                        },
+                    },
+                },
+            )
+            .execute()
+        )
+        print(
+            f" + {response['snippet']['title']} / "
+            f"{response['snippet']['position']} in playlist"
+        )
+        return (False, LABEL_DONE)
+    except HttpError as e:
+        if e.error_details[0]["reason"] == LABEL_QUOTA_EXCEEDED:  # type: ignore
+            print(f">>>> Quota exceeded when trying to add {video_id}")
+            return (True, LABEL_BLANK)
+        processed_df.at[row.Index, COL_STATUS] = e.error_details[0]["reason"]  # type: ignore
+        print(f">>>> ERROR {e.error_details[0]['message']}")  # type: ignore
+        return (False, e.error_details[0]["reason"])
+
+
 def partly_processed_csv(client, source_df: pd.DataFrame) -> pd.DataFrame:
     processed_df = source_df.copy()
     for row in processed_df.itertuples():
@@ -55,36 +117,21 @@ def partly_processed_csv(client, source_df: pd.DataFrame) -> pd.DataFrame:
         video_id, status, playlist_id = data.values
         if status in [LABEL_DONE, LABEL_404]:
             continue
-        try:
-            print(f"-> Adding {video_id} to {playlist_id}")
-            response = (
-                client.playlistItems()
-                .insert(
-                    part="snippet, contentDetails",
-                    body={
-                        "contentDetails": {"videoId": video_id},
-                        "snippet": {
-                            "playlistId": playlist_id,
-                            "resourceId": {
-                                "kind": "youtube#video",
-                                "videoId": video_id,
-                            },
-                        },
-                    },
-                )
-                .execute()
-            )
-            print(
-                f" + {response['snippet']['title']} / "
-                f"{response['snippet']['position']} in playlist"
-            )
-            processed_df.at[row.Index, COL_STATUS] = LABEL_DONE
-        except HttpError as e:
-            if e.error_details[0]["reason"] == LABEL_QUOTA_EXCEEDED:  # type: ignore
-                print(f">>>> Quota exceeded when trying to add {video_id}")
-                return processed_df
-            processed_df.at[row.Index, COL_STATUS] = e.error_details[0]["reason"]  # type: ignore
-            print(f">>>> ERROR {e.error_details[0]['message']}")  # type: ignore
+
+        should_skip, reason = video_is_already_in_playlist(
+            client, video_id=video_id, playlist_id=playlist_id
+        )
+        if should_skip:
+            processed_df.at[row.Index, COL_STATUS] = reason
+            continue
+
+        should_stop, status = add_another_video_to_playlist(
+            client, video_id=video_id, playlist_id=playlist_id
+        )
+        processed_df.at[row.Index, COL_STATUS] = status
+        if should_stop:
+            return processed_df
+
     return processed_df
 
 
