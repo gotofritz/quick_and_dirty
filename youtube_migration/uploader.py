@@ -35,7 +35,10 @@ def pick_latest_file(dir: Path) -> Path:
     """assume that all files have a timestamp in the name, and hence the
     latest is the last one
     """
-    return list(DATA_DIR.glob("*.csv")).pop()
+    all_csvs = sorted(DATA_DIR.glob("*.csv"))
+    latest_csv = all_csvs.pop()
+    print(f"opening {latest_csv}")
+    return latest_csv
 
 
 def with_timestamp(stem: str) -> str:
