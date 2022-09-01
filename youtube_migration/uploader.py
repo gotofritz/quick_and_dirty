@@ -1,3 +1,27 @@
+"""
+DISCLAIMER: this is provided for educataional purposes only. Use at your
+own risk
+
+Adds as many videos from a CSV as it can to a YouTube playlist. Then it
+creates another csv files with a summary of which videos where done. The
+next day, just rerun the script and it will do the next batch, until all
+done. The CSV files need to go into the data/  directory, and have a
+name that starts with a timestamp, like `20220828T170021_data.csv`. The format of the CSV is
+
+Video ID,Time Added,Status,Playlist ID
+nmdUMwlrezs,2022-05-01 16:28:50 UTC,,PLZ6Ih9wLHQ2H1u5cOpSWgVGsn8YLWMmdy
+8qIMIAG5Z_E,2022-05-01 16:31:08 UTC,,PLZ6Ih9wLHQ2H1u5cOpSWgVGsn8YLWMmdy
+
+
+Usage:
+    ❯ python uploader.py
+    Please visit this URL to authorize this application:
+    https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=...xx...
+    Enter the authorization code: ....
+    opening data/20220831T225517_data.csv
+    ...
+"""
+
 import pandas as pd
 from datetime import datetime
 from pathlib import Path

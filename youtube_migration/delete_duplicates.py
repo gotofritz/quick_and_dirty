@@ -1,3 +1,13 @@
+"""
+DISCLAIMER: this is provided for educataional purposes only. Use at your
+own risk
+
+Removes duplicate videos from youtube playlists
+
+Usage:
+    > python delete_duplicates.py playlistid_1 playlistid_2 ... playlistid_n
+"""
+
 import sys
 import os
 from googleapiclient.discovery import build
