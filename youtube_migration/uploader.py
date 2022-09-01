@@ -15,7 +15,6 @@ LABEL_DONE = "done"
 LABEL_404 = "videoNotFound"
 LABEL_BLANK = ""
 LABEL_QUOTA_EXCEEDED = "quotaExceeded"
-CLIENT_SECRETS_FILE = "client_secret.json"
 
 # This scope allows for full read/write
 # access to the authenticated user's account
@@ -23,6 +22,7 @@ CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 API_SERVICE_NAME = "youtube"
 API_VERSION = "v3"
+CLIENT_SECRETS_FILE = "client_secret.json"
 
 
 def get_authenticated_service():
