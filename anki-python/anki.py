@@ -120,7 +120,7 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
                 new_card[-(2 + offset)] = config_value
 
     if "tags" in card_data:
-        new_card[-1] += " " + " ".join(card_data["tags"])
+        new_card[-1] = " ".join(card_data["tags"])
 
     write_card_to_file(new_card, write_to)
     cards_done += 1
