@@ -4,8 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-Markdown = "==2.6.11"
-PyYAML = "==5.4"
+Markdown = "==3.4.1"
+PyYAML = "==6.0"
+typer = "0.7.0"
 
 [dev-packages]
 black = "*"
