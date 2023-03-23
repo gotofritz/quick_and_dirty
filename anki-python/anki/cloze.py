@@ -31,8 +31,8 @@ def _replace_line_specific(position: int, line: str) -> str:
     def pick_one(match_obj):
         return match_obj.group(position)
 
-    matcher = re.compile(r"\{\{(.+?)\|(.+?)\}\}")
-    return re.sub(matcher, pick_one, line)
+    matcher = re.compile(r"\{\{(.*?)\|(.*?)\}\}")
+    return matcher.sub(pick_one, line)
 
 
 def main(
@@ -41,7 +41,7 @@ def main(
         "",
         help="The file where the cards will be saved",
     ),
-    tag: List[str] = Option(  # noqa B008
+    tags: List[str] = Option(  # noqa B008
         ["geeky"], help="The string(s) that will appear in the changelog"
     ),
 ):
@@ -51,11 +51,14 @@ def main(
     Usage:
 
     ❯ python -m anki.cloze --src ~/Dropbox/_TRANSFER/anki/multiline.txt
+
     Done 17 cards!
 
     ❯ anki/main.py --src ~/Dropbox/_TRANSFER/anki/GEEK.yml --fields 2
     ...
     """
+
+    tags = [tag for tag_string in tags for tag in tag_string.split(" ")]
 
     jobs = []
 
@@ -75,16 +78,18 @@ def main(
 
     target_cards = []
     for batch in jobs:
-        for i in range(len(batch) - 2):
+        for i in range(len(batch) - 1):
+            question = (
+                _replace_line_specific(2, batch[i])
+                + " "
+                + _replace_line_specific(1, batch[i + 1])
+            )
+            question = re.sub(r"\s+", " ", question).strip()
             target_cards.append(
                 {
-                    "question": [
-                        _replace_line_specific(2, batch[i])
-                        + " "
-                        + _replace_line_specific(1, batch[i + 1])
-                    ],
+                    "question": [question],
                     "answers": [],
-                    "tags": tag.copy(),
+                    "tags": tags.copy(),
                 }
             )
 
@@ -95,7 +100,7 @@ def main(
     with open(target, "w") as f:
         f.write(yaml.dump(target_cards, sort_keys=False))
 
-    print(f"Done {len(target_cards)} cards!")
+    print(f"Done {len(target_cards)} cards in {target}!")
 
 
 if __name__ == "__main__":
