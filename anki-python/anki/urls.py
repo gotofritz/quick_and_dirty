@@ -106,6 +106,8 @@ def main():
 
     MAX_LINKS = 8
     for record in records_todo:
+        if isinstance(record["src"], str):
+            record["src"] = [record["src"]]
         if len(record["src"]) > MAX_LINKS:
             new_record = {
                 "book": record.get("book", ""),
