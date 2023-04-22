@@ -1,3 +1,13 @@
+"""
+Convert this format
+
+>{tags: geeky sql}> In SQL, INNER JOIN only returns rows where there is an actual join.
+{{|In SQL, }}(FULL) OUTER JOIN returns all rows from both tables
+...
+
+to a list of cards in GEEK.yml
+
+"""
 import re
 import yaml
 from pathlib import Path
@@ -24,7 +34,7 @@ def _starts_new_batch(line: str) -> bool:
 
 def _first_line_of_new_batch(line: str) -> str:
     """Remove whatever it was that signaled 'new batch'."""
-    return re.sub(r"^> *", "", line)
+    return re.sub(r"^>({[^}]+\}>)? *", "", line)
 
 
 def _replace_line_specific(position: int, line: str) -> str:
@@ -33,6 +43,14 @@ def _replace_line_specific(position: int, line: str) -> str:
 
     matcher = re.compile(r"\{\{(.*?)\|(.*?)\}\}")
     return matcher.sub(pick_one, line)
+
+
+def _tags_for_batch(line: str, tags: list[str] | None) -> list[str]:
+    """Extract tags from 1st line of new batch, or return globals"""
+    potential_tags = re.match(r">\{[ :a-z,]*tags:([a-z-.0-9 ]+)(,[ :a-z]+)*\}>", line)
+    if not potential_tags:
+        return tags
+    return potential_tags.group(1).strip().split(" ")
 
 
 def main(
@@ -58,26 +76,31 @@ def main(
     ...
     """
 
-    tags = [tag for tag_string in tags for tag in tag_string.split(" ")]
+    global_tags = [tag for tag_string in tags for tag in tag_string.split(" ")]
 
     jobs = []
 
     with open(src, "r") as f:
         current_batch = []
+        current_tags = global_tags.copy()
         for line in f.readlines():
             cleaned_line = _clean_line(line)
             if _is_empty_line(cleaned_line):
                 continue
             if _starts_new_batch(line):
                 if current_batch:
-                    jobs.append(current_batch)
+                    jobs.append(
+                        {"batch": current_batch, "batch_tags": current_tags.copy()}
+                    )
                 current_batch = []
+                current_tags = _tags_for_batch(cleaned_line, global_tags)
                 cleaned_line = _first_line_of_new_batch(cleaned_line)
             current_batch.append(cleaned_line)
-        jobs.append(current_batch)
+        jobs.append({"batch": current_batch, "batch_tags": current_tags})
 
     target_cards = []
-    for batch in jobs:
+    for job in jobs:
+        batch, batch_tags = job.values()
         for i in range(len(batch) - 1):
             question = (
                 _replace_line_specific(2, batch[i])
@@ -89,7 +112,7 @@ def main(
                 {
                     "question": [question],
                     "answers": [],
-                    "tags": tags.copy(),
+                    "tags": batch_tags.copy(),
                 }
             )
 

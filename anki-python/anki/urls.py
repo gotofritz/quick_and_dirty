@@ -67,6 +67,7 @@ def handle_urls(record):
         if src in duplicates:
             duplicates_ignored += 1
             continue
+        print(f"BOOK: {record['book']} / TAGS: {record['tags']}")
         webbrowser.open(src, new=2)
         keep = input("Keep? [Y/n]")
         if keep.lower() == "n":
