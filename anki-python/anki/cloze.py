@@ -101,13 +101,8 @@ def main(
     target_cards = []
     for job in jobs:
         batch, batch_tags = job.values()
-        for i in range(len(batch) - 1):
-            question = (
-                _replace_line_specific(2, batch[i])
-                + " "
-                + _replace_line_specific(1, batch[i + 1])
-            )
-            question = re.sub(r"\s+", " ", question).strip()
+        if len(batch) == 1:
+            question = re.sub(r"\s+", " ", batch[0]).strip()
             target_cards.append(
                 {
                     "question": [question],
@@ -115,6 +110,21 @@ def main(
                     "tags": batch_tags.copy(),
                 }
             )
+        else:
+            for i in range(len(batch) - 1):
+                question = (
+                    _replace_line_specific(2, batch[i])
+                    + " "
+                    + _replace_line_specific(1, batch[i + 1])
+                )
+                question = re.sub(r"\s+", " ", question).strip()
+                target_cards.append(
+                    {
+                        "question": [question],
+                        "answers": [],
+                        "tags": batch_tags.copy(),
+                    }
+                )
 
     if target == "":
         target = Path.home() / "Dropbox/_TRANSFER/anki/GEEK.yml"
