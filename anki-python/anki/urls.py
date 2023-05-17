@@ -24,6 +24,13 @@ parser.add_argument(
     default=Path.home() / "Dropbox/_TRANSFER/URLs_todo.yml",
     help="YAML file to write todo links to",
 )
+parser.add_argument(
+    "--number",
+    dest="n",
+    default=8,
+    type=int,
+    help="How many links to do",
+)
 args = parser.parse_args()
 
 discarded = 0
@@ -95,8 +102,10 @@ def main():
     global discarded
     global duplicates
     global duplicates_ignored
-    how_many_records_todo = 8
-    print(f"Called with: src: {args.src}, dest: {args.dest}, todo: {args.todo}")
+    how_many_records_todo = args.n
+    print(
+        f"Called with: src: {args.src}, dest: {args.dest}, todo: {args.todo}, number: {args.n}"
+    )
     urls = yaml.load(open(args.dest), Loader=yaml.FullLoader)
     duplicates = {url for record in urls for url in record["src"]}
 
