@@ -58,7 +58,6 @@ const EXTENSION_GLOB = 'mp[4g]';
 let userData = CaptnM.getConfigOrDie(program.config);
 const config = Object.assign(
   {
-    removeInitialDigits: true,
     verbose: false,
   },
   userData._config,
@@ -158,14 +157,12 @@ function getListOfFilesToCopy(instructions, config = {}) {
       if (instruction.disabled) return accumulator;
 
       instruction.refToInstruction = refToInstruction;
-      const { removeInitialDigits = config.removeInitialDigits } = instruction;
 
       // fixed = just copy the file(s) in the list and return, do nothing clever
       // with the config
       if (instruction.fixed) {
         return accumulator.concat(
           pushFixed(instruction.fixed, {
-            removeInitialDigits,
             srcPath: path.join(config.srcRoot, instruction.src),
             destPath: instruction.dest || config.dest,
           }),
@@ -269,9 +266,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
             allFiles[
               (indexOfLast + Math.round(runningCount)) % allFiles.length
             ];
-          const dest = CaptnM.handleBasenameDigits(src, {
-            removeInitialDigits,
-          });
+          const dest = path.basename(src);
           filesToAdd.push({
             // for debugging
             refToInstruction,
@@ -449,7 +444,7 @@ function hasEnoughDataToWorkWith(data = {}) {
 function pushFixed(fixed, instructionConfig) {
   // [].concat forces an array
   return [].concat(fixed).map((src) => {
-    const destBasename = CaptnM.handleBasenameDigits(src, instructionConfig);
+    const destBasename = path.basename(src);
     return {
       // setting isLast to false ensures the config will not be updated
       // for this entry, so ti will be there until manually changed

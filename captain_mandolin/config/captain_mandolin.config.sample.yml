@@ -1,7 +1,6 @@
 ## _config:
 ##    dest: default dest path
 ##    srcRoot: path that will be prepended to all src
-##    removeInitialDigits: whether to remove initial digits
 ##    verbose: false
 _config:
   dest: /Volumes/FLASH_DRIVE
@@ -13,7 +12,6 @@ _config:
 ## howMany: default 1
 ## traversal: if not 'breadth' then depth-first will be used
 ## disabled: boolean
-## removeInitialDigits: or default from _config will be used
 ## fixed: a file or an array of files to be copied as is, without rotating
 ## ignore: a regExp to filter out paths
 instructions:

@@ -1,5 +1,6 @@
 const { EVENT_FILELIST_WAS_GENERATED } = require('../../types');
 const CaptnM = require('../../shared');
+const path = require('path');
 
 // macro
 const add = (addTo, src, instruction) => {
@@ -7,7 +8,7 @@ const add = (addTo, src, instruction) => {
     refToInstruction: instruction.refToInstruction,
     isLast: false,
     src,
-    dest: CaptnM.handleBasenameDigits(src, instruction),
+    dest: path.basename(src),
   });
   if (instruction.moveToWhenDone) {
     addTo.push({
@@ -20,7 +21,7 @@ const add = (addTo, src, instruction) => {
 
 // Adds the first N files from allFiles to filesToAdd and use
 // moveToWhenDone attribute to move files
-module.exports = fileCollectorEmitter => {
+module.exports = (fileCollectorEmitter) => {
   fileCollectorEmitter.on(
     EVENT_FILELIST_WAS_GENERATED,
     ({ instruction, allFiles, filesToAdd }) => {
@@ -31,9 +32,6 @@ module.exports = fileCollectorEmitter => {
         allFiles.length === 0;
       if (shouldBailEarly) return { instruction, filesToAdd };
 
-      if (instruction.removeInitialDigits !== false) {
-        instruction.removeInitialDigits = true;
-      }
       let howMany = (instruction.howMany = instruction.howMany || 1);
       howMany = Math.min(howMany, allFiles.length);
 
