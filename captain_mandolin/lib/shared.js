@@ -96,3 +96,7 @@ module.exports.saveToFile = (name, content) => {
     'utf8',
   );
 };
+
+module.exports.handleBasenameDigits = (src) => {
+  return path.basename(src).replace(/^\d+ /i, '');
+};

@@ -266,7 +266,7 @@ function getListOfFilesToCopy(instructions, config = {}) {
             allFiles[
               (indexOfLast + Math.round(runningCount)) % allFiles.length
             ];
-          const dest = path.basename(src);
+          const dest = CaptnM.handleBasenameDigits(src);
           filesToAdd.push({
             // for debugging
             refToInstruction,
@@ -444,7 +444,7 @@ function hasEnoughDataToWorkWith(data = {}) {
 function pushFixed(fixed, instructionConfig) {
   // [].concat forces an array
   return [].concat(fixed).map((src) => {
-    const destBasename = path.basename(src);
+    const destBasename = CaptnM.handleBasenameDigits(src);
     return {
       // setting isLast to false ensures the config will not be updated
       // for this entry, so ti will be there until manually changed

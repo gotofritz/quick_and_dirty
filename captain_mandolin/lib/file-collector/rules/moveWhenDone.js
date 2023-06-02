@@ -8,7 +8,7 @@ const add = (addTo, src, instruction) => {
     refToInstruction: instruction.refToInstruction,
     isLast: false,
     src,
-    dest: path.basename(src),
+    dest: CaptnM.handleBasenameDigits(src),
   });
   if (instruction.moveToWhenDone) {
     addTo.push({
