@@ -19,3 +19,6 @@ log-*.txt
 downloader-postprocess-*
 delete-old-tweets
 downloader.sh
+misc
+shopping_list
+bank
