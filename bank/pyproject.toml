@@ -1,0 +1,96 @@
+[tool.poetry]
+name = "bank"
+version = "0.1.0"
+description = ""
+authors = ["gotofritz <@gotofritz@fosstodon.org>"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/gotofritz/quick_and_dirty/bank"
+repository = "https://github.com/gotofritz/quick_and_dirty"
+
+[tool.poetry.dependencies]
+python = "^3.11.1"
+pandas = "^2.0.0"
+typer = "0.9.0"
+pydantic = "^1.10.7"
+pyyaml = "^6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.1.3"
+coverage = {extras = ["toml"], version = "^6.4.4"}
+pytest-cov = "^3.0.0"
+black = "^22.8.0"
+isort = "^5.10.1"
+flake8 = "^4"
+flakeheaven = "^3.0.0"
+darglint = "^1.8.1"
+flake8-bandit = "^3.0"
+flake8-pytest-style = "^1.6.0"
+flake8-bugbear = "^22.8.23"
+flake8-docstrings = "^1.6.0"
+flake8-comprehensions = "^3.10.0"
+flake8-isort = "^4.2.0"
+flake8-mutable = "^1.2.0"
+flake8-simplify = "^0.19.3"
+pep8-naming = "^0.13.2"
+safety = "^2.1.1"
+mypy = "^0.971"
+Faker = "^14.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["bank"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.flakeheaven]
+exclude = ["*.md", ".env", ".git", ".gitignore"]
+format = "grouped"
+max_line_length = 88
+show_source = true
+
+[tool.flakeheaven.plugins]
+darglint = ["+*"]
+flake8-bandit = ["+*", "-S322"]
+flake8-bugbear = ["+*", "-B950"]
+flake8-builtins = ["+*"]
+flake8-comprehensions = ["+*"]
+flake8-docstrings = ["+*", "-D400"]
+flake8-isort = ["+*"]
+flake8-mutable = ["+*"]
+flake8-pytest-style = ["+*"]
+flake8-simplify = ["+*"]
+mccabe = ["+*"]
+pep8-naming = ["+*"]
+pycodestyle = ["+*"]
+pyflake = ["+*"]
+
+[tool.flakeheaven.exceptions."tests/"]
+flake8-bandit = ["-S101"]
+flake8-docstrings = ["-D100"]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.isort]
+profile = "black"
+atomic = true
+line_length = 88
+use_parentheses = true
+
+[tool.black]
+line_length = 88
+include = '\.pyi?$'
