@@ -190,3 +190,4 @@ cython_debug/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 payees_rules/payees*
+upload*.csv
