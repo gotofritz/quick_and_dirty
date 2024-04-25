@@ -12,7 +12,7 @@ repository = "https://github.com/gotofritz/quick_and_dirty"
 python = "^3.11.1"
 pandas = "^2.0.0"
 typer = "0.9.0"
-pydantic = "^1.10.7"
+pydantic = "^1.10.13"
 pyyaml = "^6.0.1"
 
 [tool.poetry.group.dev.dependencies]
