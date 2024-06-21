@@ -1,5 +1,5 @@
 """
-Loads a file exported by ankik
+Loads a file exported by anki
 
 "In SQL, INNER JOIN only returns rows where there is an actual join."
 (FULL) OUTER JOIN returns all rows from both tables
@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 from typer import run, Option
-from typing import List, Optional
+from typing import Optional
 
 
 def main(

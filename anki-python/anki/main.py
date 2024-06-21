@@ -7,24 +7,8 @@ import yaml
 DEFAULT_TAGS = "geeky "
 FIELDS_QUESTION = 2
 FIELDS_ANSWERS = 12
-CONFIG_FIELDS = ["memoryJourney", "answerFirst", "noNumber"]
-MEMORY_JOURNEYS = {
-    "AKQ": "AKQA",
-    "BRE": "Brera",
-    "BRI": "Brixton",
-    "DEN": "Denns",
-    "GAD": "Gadda",
-    "GOO": "Goodge St",
-    "KIT": "Kitchen",
-    "MAI": "Mainini",
-    "MIN": "Minna-Flake",
-    "OLD": "Old St",
-    "PET": "Petrella",
-    "PRO": "pro!vision",
-    "UCL": "UCL",
-    "WAY": "Wayfair",
-    "WEL": "Wellenbad",
-}
+CONFIG_FIELDS = ["noNumber"]
+
 
 yaml.reader.Reader.NON_PRINTABLE = re.compile(
     "[^\x09\x0A\x0D\x20-\x7E\x85\xA0-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]"
@@ -92,7 +76,12 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
     if 1 <= len(card_data["question"]):
         new_card[0] = process_normal_field(card_data["question"][0])
     if 2 <= len(card_data["question"]):
-        new_card[1] = process_code_field(card_data["question"][1])
+        field = card_data["question"][1]
+        if field[0:3] == "```":
+            new_card[1] = process_code_field(field)
+        else:
+            new_card[1] = process_normal_field(field)
+
 
     for i in range(0, FIELDS_ANSWERS):
         if i < len(card_data["answers"]):
@@ -112,12 +101,7 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
         for offset, config_key in enumerate(CONFIG_FIELDS):
             if config_key in card_data["config"]:
                 config_value = card_data["config"][config_key]
-                if config_key == "memoryJourney":
-                    if config_value not in MEMORY_JOURNEYS.keys():
-                        raise Exception(f"Unrecognised memory journey: {config_value}")
-                    config_value = MEMORY_JOURNEYS[config_value]
-                else:
-                    config_value = "x" if config_value else ""
+                config_value = "x" if config_value else ""
                 new_card[-(2 + offset)] = config_value
 
     if "tags" in card_data:
