@@ -57,7 +57,9 @@ def process_normal_field(field):
         raise Exception
 
 
-def process_code_field(field):
+def process_code_field(field, remove_backticks=False):
+    if remove_backticks:
+        field = re.sub(r"^```", "", field)
     return (
         "<pre>"
         + field.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "___")
@@ -78,7 +80,7 @@ for card_data in yaml.load(open(args.src), Loader=yaml.FullLoader):
     if 2 <= len(card_data["question"]):
         field = card_data["question"][1]
         if field[0:3] == "```":
-            new_card[1] = process_code_field(field)
+            new_card[1] = process_code_field(field=field, remove_backticks=True)
         else:
             new_card[1] = process_normal_field(field)
 
