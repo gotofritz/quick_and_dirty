@@ -81,6 +81,7 @@ module.exports.writeYaml = (pth, settings) => {
     yaml.safeDump(updatedSettings, { lineWidth: -1 }),
     'utf8',
   );
+  console.log(`Written config to ${pth}`);
   return updatedSettings;
 };
 
